@@ -1,7 +1,3 @@
-provider "aws" {
-  region = "ap-northeast-1"
-}
-
 resource "aws_launch_template" "web_launch_template" {
   name_prefix            = "single-web-server-"
   image_id               = data.aws_ami.ubuntu.id
