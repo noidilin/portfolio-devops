@@ -20,3 +20,9 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
+
+variable "server_port" {
+  description = "The port on which the server will listen."
+  type        = number
+  default     = 8080
+}
