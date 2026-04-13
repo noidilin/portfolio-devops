@@ -1,9 +1,5 @@
-# output "app_server_hostname" {
-#   description = "Public instance name of the App Server EC2 instance."
-#   value       = aws_instance.app_server.public_dns
-# }
-#
-# output "app_server_public_ip" {
-#   description = "Public IP of the App Server EC2 instance."
-#   value       = aws_instance.app_server.public_ip
-# }
+output "alb_dns_name" {
+  description = "The domain name of the load balancer."
+  value       = aws_lb.web_alb.dns_name
+}
+
