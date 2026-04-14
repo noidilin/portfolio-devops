@@ -4,12 +4,13 @@ resource "aws_launch_template" "web_launch_template" {
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.web_instance_sg.id]
 
-  user_data = base64encode(<<-EOF
-              #!/bin/bash
-              echo "Hello, World" > index.html
-              nohup busybox httpd -f -p ${var.server_port} &
-              EOF
-  )
+  user_data = base64encode(templatefile("user-data.sh", {
+    server_port = var.server_port
+    db_address  = data.terraform_remote_state.db.outputs.address
+    db_port     = data.terraform_remote_state.db.outputs.port
+  }))
+
+  update_default_version = true
 
   # WARN: launch configuration is immutable
   # terraform will create new configuration everytime when it changed
@@ -17,8 +18,8 @@ resource "aws_launch_template" "web_launch_template" {
   # Therefore, we don't need the field `user_data_replace_on_change`
   # in launch configuration
   lifecycle {
-    # make sure terraform: 
-    # create the replacement resource -> update existing reference 
+    # make sure terraform:
+    # create the replacement resource -> update existing reference
     # before it delete the old reference
     create_before_destroy = true
   }
@@ -42,6 +43,14 @@ resource "aws_autoscaling_group" "web_asg" {
 
   min_size = 2
   max_size = 10
+
+  instance_refresh {
+    strategy = "Rolling"
+
+    preferences {
+      min_healthy_percentage = 50
+    }
+  }
 
   tag {
     key                 = "Name"
