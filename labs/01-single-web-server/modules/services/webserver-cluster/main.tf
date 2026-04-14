@@ -41,8 +41,8 @@ resource "aws_autoscaling_group" "web_asg" {
   # default is EC2, which only checks if the VM is completely down
   health_check_type = "ELB"
 
-  min_size = 2
-  max_size = 10
+  min_size = var.min_size
+  max_size = var.max_size
 
   instance_refresh {
     strategy = "Rolling"
@@ -70,7 +70,7 @@ resource "aws_lb" "web_alb" {
 # configure ALB to listen on the default port of HTTP
 resource "aws_lb_listener" "web_http" {
   load_balancer_arn = aws_lb.web_alb.arn
-  port              = 80
+  port              = local.http_port
   protocol          = "HTTP"
 
   default_action {
@@ -123,32 +123,32 @@ resource "aws_lb_listener_rule" "web_http_rule" {
 # - default VPC are public subnet and will be a security risk
 # - use 'reverse proxies' and 'load balancers' as the gate
 resource "aws_security_group" "web_instance_sg" {
-  name = "single-web-server-instance-sg"
+  name = "single-web-server-${var.cluster_name}-instance-sg"
   ingress {
     from_port   = var.server_port
     to_port     = var.server_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    protocol    = local.tcp_protocol
+    cidr_blocks = local.all_ips
   }
 }
 
 resource "aws_security_group" "web_alb_sg" {
-  name = "single-web-server-alb-sg"
+  name = "single-web-server-${var.cluster_name}-alb-sg"
 
   # allow inbound HTTP requests
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port   = local.http_port
+    to_port     = local.http_port
+    protocol    = local.tcp_protocol
+    cidr_blocks = local.all_ips
   }
 
   # allow all outbound requests
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port   = local.any_port
+    to_port     = local.any_port
+    protocol    = local.any_protocol
+    cidr_blocks = local.all_ips
   }
 
 }

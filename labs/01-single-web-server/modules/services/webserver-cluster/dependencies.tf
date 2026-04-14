@@ -23,8 +23,8 @@ data "aws_subnets" "default" {
 data "terraform_remote_state" "db" {
   backend = "s3"
   config = {
-    bucket = "noidilin-tf-state"
-    key    = "labs/01-single-web-server/stage/data-stores/mysql/terraform.tfstate"
+    bucket = var.db_remote_state_bucket
+    key    = var.db_remote_state_key
     region = "ap-northeast-1"
   }
 }
