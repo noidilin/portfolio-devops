@@ -20,12 +20,12 @@ output "s3_bucket_arn" {
 
 output "dynamodb_table_name" {
   description = "Name of the DynamoDB table for asset metadata"
-  value       = aws_dynamodb_table.asset_metadata.name
+  value       = module.ddb.name
 }
 
 output "dynamodb_table_arn" {
   description = "ARN of the DynamoDB table for asset metadata"
-  value       = aws_dynamodb_table.asset_metadata.arn
+  value       = module.ddb.arn
 }
 
 output "lambda_role_arn" {

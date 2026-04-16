@@ -59,7 +59,7 @@ resource "aws_iam_policy" "lambda_dynamodb" {
           "dynamodb:Query",
           "dynamodb:Scan"
         ]
-        Resource = aws_dynamodb_table.asset_metadata.arn
+        Resource = module.ddb.arn
       }
     ]
   })
