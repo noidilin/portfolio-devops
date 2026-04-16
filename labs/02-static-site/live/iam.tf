@@ -34,8 +34,8 @@ resource "aws_iam_policy" "lambda_s3_read" {
           "s3:ListBucket"
         ]
         Resource = [
-          aws_s3_bucket.static_assets.arn,
-          "${aws_s3_bucket.static_assets.arn}/*"
+          module.s3.arn,
+          "${module.s3.arn}/*"
         ]
       }
     ]

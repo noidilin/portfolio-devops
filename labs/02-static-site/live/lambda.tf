@@ -17,7 +17,7 @@ resource "aws_lambda_function" "main" {
 
   environment {
     variables = {
-      S3_BUCKET_NAME      = aws_s3_bucket.static_assets.bucket
+      S3_BUCKET_NAME      = module.s3.name
       DYNAMODB_TABLE_NAME = module.ddb.name
     }
   }
