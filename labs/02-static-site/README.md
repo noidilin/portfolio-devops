@@ -23,14 +23,14 @@ A good way to read Terraform projects is to treat it like a call graph.
    - see whether the variables are passed deeper
    - repeat this process, until we hit an actual resource
 
-## Step 1
+## Step 1: setup the project
 
 Things different from the official course:
 
 - I am using the S3 bucket I have setup previously to store remote state.
 - I am using terraform, since my neovim config is having hard time to pickup the downloaded providers
 
-## Step 2
+## Step 2: add reusable module for resources
 
 > [!WARNING]
 > move to `module.{module_name}.{previous_resources}`
@@ -45,7 +45,7 @@ Here is how I move each resource to its dedicated module:
 4. add `vars-required.tf` for the new module, and update `live/main.tf`
 5. add `outputs.tf` for the new module to wire up other codes that consuming its exported values.
 
-## Step 3
+## Step 3: add composition module to build new dev env quickly
 
 > [!WARNING]
 > move to `module.prod.module.{previous_resources}`
@@ -56,4 +56,19 @@ Here is how I move each resource to its dedicated module:
 
 All resources  are in the same state file now, so every `apply`, or `destroy` has the potential to modify the multiple envs.
 
-## Step 4
+## Step 4: separate out dev and prod module to reduce blast radius
+
+> [!WARNING]
+> move to `module.main.module.{previous_resources}`
+
+Breaking our config into `dev` and `prod` root modules can increase the safety for this project with the trade-off that there will be a lots of duplication in both `dev` and `prod` module.
+
+> [!NOTE]
+> The previous `.terraform` dir needs to be copied to the new directory for both `dev` and `prod`, so that `terraform init -migrate-state` can migrate to new remote state with the local state stored in the `.terraform` dir.
+
+The content we defined in `removed.tf` didn't actually delete the resource specified by us. Instead, it is more like to 'unmanaged' those resources in this terraform unit. Since we are separating the state (the scope for each terraform command, or the 'blast radius'), we have to un-manage  the resource that are not related to this unit.
+
+- `dev` env: un-manage resources for `prod`
+- `prod` env: un-manage resources for `dev`
+
+## Step 5: introduce terragrunt to reduce boilerplate
