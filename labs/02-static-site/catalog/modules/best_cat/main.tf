@@ -1,15 +1,15 @@
 module "ddb" {
-  source = "../catalog/modules/ddb"
+  source = "../ddb"
   name   = var.name
 }
 
 module "s3" {
-  source = "../catalog/modules/s3"
+  source = "../s3"
   name   = var.name
 }
 
 module "iam" {
-  source             = "../catalog/modules/iam"
+  source             = "../iam"
   name               = var.name
   aws_region         = var.aws_region
   s3_bucket_arn      = module.s3.arn
@@ -17,7 +17,7 @@ module "iam" {
 }
 
 module "lambda" {
-  source              = "../catalog/modules/lambda"
+  source              = "../lambda"
   name                = var.name
   aws_region          = var.aws_region
   lambda_zip_file     = var.lambda_zip_file
