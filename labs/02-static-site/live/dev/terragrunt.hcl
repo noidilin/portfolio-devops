@@ -1,28 +1,5 @@
-remote_state {
-  backend = "s3"
-  generate = {
-    path = "backend.tf"
-    if_exists = "overwrite"
-  }
-
-  config = {
-    bucket = "noidilin-tf-state"
-    key    = "labs/02-static-site/live/dev/terraform.tfstate"
-    region = "ap-northeast-1"
-
-    dynamodb_table = "noidilin-tf-state-locks"
-    encrypt        = true
-  }
-}
-
-generate "providers" {
-  path = "providers.tf"
-  if_exists = "overwrite_terragrunt"
-  contents  = <<EOF
-provider "aws" {
-  region = "ap-northeast-1"
-}
-EOF
+include "root" {
+  path = find_in_parent_folders("root.hcl")
 }
 
 # HACK: Those // before `best_cat` are there on purpose.
@@ -36,4 +13,5 @@ terraform {
 inputs = {
   name = "break-terralith-dev"
   lambda_zip_file = "${get_repo_root()}/labs/02-static-site/dist/best-cat.zip"
+  aws_region = "ap-northeast-1"
 }
