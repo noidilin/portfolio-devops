@@ -1,4 +1,4 @@
-module "prod" {
+module "main" {
   source = "../../catalog/modules/best_cat"
 
   name            = var.name
