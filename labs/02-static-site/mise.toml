@@ -1,0 +1,5 @@
+[tools]
+aws = { version = "2.27.63", symlink_bins = "true" }
+node = { version = "22.17.1", postinstall = "corepack enable pnpm" }
+terraform = "1.14"
+terragrunt = "0.95.0"
