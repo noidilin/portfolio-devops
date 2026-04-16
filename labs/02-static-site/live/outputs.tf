@@ -1,11 +1,16 @@
 output "lambda_function_url" {
   description = "URL of the Lambda function"
-  value       = aws_lambda_function_url.main.function_url
+  value       = module.lambda.url
 }
 
 output "lambda_function_name" {
   description = "Name of the Lambda function"
-  value       = aws_lambda_function.main.function_name
+  value       = module.lambda.name
+}
+
+output "lambda_function_arn" {
+  description = "ARN of the Lambda function"
+  value       = module.lambda.arn
 }
 
 output "s3_bucket_name" {

@@ -42,3 +42,13 @@ moved {
   from = aws_iam_role_policy_attachment.lambda_basic_execution
   to   = module.iam.aws_iam_role_policy_attachment.lambda_basic_execution
 }
+
+moved {
+  from = aws_lambda_function.main
+  to   = module.lambda.aws_lambda_function.main
+}
+
+moved {
+  from = aws_lambda_function_url.main
+  to   = module.lambda.aws_lambda_function_url.main
+}

@@ -6,7 +6,7 @@ resource "aws_lambda_function" "main" {
   filename         = var.lambda_zip_file
   source_code_hash = filebase64sha256(var.lambda_zip_file)
 
-  role = module.iam.arn
+  role = var.lambda_role_arn
 
   # lambda looks inside the ZIP for `index.js` and the function named `handler`
   handler       = var.lambda_handler
@@ -17,8 +17,8 @@ resource "aws_lambda_function" "main" {
 
   environment {
     variables = {
-      S3_BUCKET_NAME      = module.s3.name
-      DYNAMODB_TABLE_NAME = module.ddb.name
+      S3_BUCKET_NAME      = var.s3_bucket_name
+      DYNAMODB_TABLE_NAME = var.dynamodb_table_name
     }
   }
 
