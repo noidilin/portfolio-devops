@@ -34,8 +34,8 @@ resource "aws_iam_policy" "lambda_s3_read" {
           "s3:ListBucket"
         ]
         Resource = [
-          module.s3.arn,
-          "${module.s3.arn}/*"
+          var.s3_bucket_arn,
+          "${var.s3_bucket_arn}/*"
         ]
       }
     ]
@@ -59,7 +59,7 @@ resource "aws_iam_policy" "lambda_dynamodb" {
           "dynamodb:Query",
           "dynamodb:Scan"
         ]
-        Resource = module.ddb.arn
+        Resource = var.dynamodb_table_arn
       }
     ]
   })

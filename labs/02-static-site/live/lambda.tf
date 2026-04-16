@@ -6,7 +6,7 @@ resource "aws_lambda_function" "main" {
   filename         = var.lambda_zip_file
   source_code_hash = filebase64sha256(var.lambda_zip_file)
 
-  role = aws_iam_role.lambda_role.arn
+  role = module.iam.arn
 
   # lambda looks inside the ZIP for `index.js` and the function named `handler`
   handler       = var.lambda_handler
@@ -22,11 +22,11 @@ resource "aws_lambda_function" "main" {
     }
   }
 
-  depends_on = [
-    aws_iam_role_policy_attachment.lambda_s3_read,
-    aws_iam_role_policy_attachment.lambda_dynamodb,
-    aws_iam_role_policy_attachment.lambda_basic_execution
-  ]
+  # depends_on = [
+  #   aws_iam_role_policy_attachment.lambda_s3_read,
+  #   aws_iam_role_policy_attachment.lambda_dynamodb,
+  #   aws_iam_role_policy_attachment.lambda_basic_execution
+  # ]
 }
 
 resource "aws_lambda_function_url" "main" {
