@@ -3,3 +3,7 @@ variable "name" {
   type        = string
 }
 
+variable "lambda_zip_file" {
+  description = "Path to the Lambda function zip file"
+  type        = string
+}
