@@ -8,8 +8,6 @@ unit "ddb" {
   source = "${local.units_path}/ddb"
   path = "ddb"
 
-  no_dot_terragrunt_stack = true
-
   values = {
     name = local.name
   }
@@ -18,8 +16,6 @@ unit "ddb" {
 unit "s3" {
   source = "${local.units_path}/s3"
   path = "s3"
-
-  no_dot_terragrunt_stack = true
 
   values = {
     name = local.name
@@ -30,8 +26,6 @@ unit "s3" {
 unit "iam" {
   source = "${local.units_path}/iam"
   path = "iam"
-
-  no_dot_terragrunt_stack = true
 
   values = {
     name = local.name
@@ -45,7 +39,6 @@ unit "lambda" {
   source = "${local.units_path}/lambda"
   path = "lambda"
 
-  no_dot_terragrunt_stack = true
   values = {
     name = local.name
     aws_region = local.aws_region
