@@ -72,3 +72,9 @@ The content we defined in `removed.tf` didn't actually delete the resource speci
 - `prod` env: un-manage resources for `dev`
 
 ## Step 5: introduce terragrunt to reduce boilerplate
+
+- introducing `terragrunt.hcl` file into modules allow Terragrunt to recognize the content of this directory as a terragrunt "unit".
+
+I noticed that the `terragrunt run --all plan` introduce a path change for `lambda_zip_file`, and it seems like the terragrunt will flatten the module structure, which make `best_cat` become the Terraform root module inside `.terragrunt-cache`.
+
+Under the old pattern, the zip path was effectively being interpreted from one directory deeper in the module tree, so Terraform recorded `../../dist/best-cat.zip`. With Terragrunt, the same artifact can now be represented one level shorter `../dist/best-cat.zip`.
