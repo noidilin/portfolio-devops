@@ -1,8 +1,14 @@
-## Lab Overview
+# Lab Overview
 
 Follow the core concept in Terraform: up and running writing IaS.
 
 This lab finished the chapter 2, 3, and 4, and also implement some of the elegant practice from chapter 7, and 10 in advance.
+
+> [!WARNING]
+>
+> I start using Terragrunt in the middle of this lab, since the book mentioned this tool. It turns out it is a pretty bad decision, since I now have to migrate the example in the book to the pattern that terragrunt is using. Although this is a good learning experience, but it also distract me from the core terraform concept.
+> I believe that having a better foundation on how terraform works and what are the popular patterns, can provide me more value from terragrunt, since I can finally understand what problems it is trying to solve.
+> Therefore, I recommend everyone who want to follow this lab stick to the content of this book first, and move on to the terragrunt in the next lab, in which we will migrate a static website practice written in terraform to terragrunt.
 
 ## Flow
 
