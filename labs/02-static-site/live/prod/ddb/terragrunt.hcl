@@ -7,5 +7,5 @@ terraform {
 }
 
 inputs = {
-  name = "break-terralith"
+  name = values.name
 }

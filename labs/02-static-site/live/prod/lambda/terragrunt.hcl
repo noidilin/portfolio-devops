@@ -7,7 +7,7 @@ terraform {
 }
 
 dependency "s3" {
-  config_path = "../s3"
+  config_path = values.s3_path
 
   mock_outputs = {
     name = "mock-bucket-name"
@@ -18,7 +18,7 @@ dependency "s3" {
 }
 
 dependency "ddb" {
-  config_path = "../ddb"
+  config_path = values.ddb_path
 
   mock_outputs = {
     name = "mock-table-name"
@@ -29,18 +29,19 @@ dependency "ddb" {
 }
 
 dependency "iam" {
-  config_path = "../iam"
+  config_path = values.iam_path
 
   mock_outputs = {
     arn = "arn:aws:iam::123456789012:role/mock-role-name"
   }
+
   mock_outputs_allowed_terraform_commands = ["plan", "state"]
   mock_outputs_merge_strategy_with_state  = "shallow"
 }
 
 inputs = {
-  name = "break-terralith"
-  aws_region = "ap-northeast-1"
+  name = values.name
+  aws_region = values.aws_region
 
   s3_bucket_name      = dependency.s3.outputs.name
   dynamodb_table_name = dependency.ddb.outputs.name

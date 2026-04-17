@@ -7,9 +7,6 @@ terraform {
 }
 
 inputs = {
-  name = "break-terralith"
-  # Optional: Force destroy S3 buckets even when they have objects in them.
-  # You're generally advised not to do this with important infrastructure,
-  # however this makes testing and cleanup easier for this guide.
-  force_destroy = true
+  name = values.name
+  force_destroy = try(values.force_destroy, false)
 }
