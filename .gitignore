@@ -1,3 +1,6 @@
+.DS_Store
+tmp/
+
 node_modules/
 
 .terraform/
@@ -7,5 +10,4 @@ node_modules/
 *.tfstate.*
 *.tfvars
 *.tfplan
-
 db-key.auto.tfvars
