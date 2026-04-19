@@ -1,8 +1,18 @@
-# Terragrunt Pattern
+# Dev Ops Portfolio
+
+Hands-on practice on these tools in the lab:
+
+- IaC with Terraform, combined with Terragrunt pattern
+- Containerization with Docker
+- Orchestration with Kubernetes
+- GitHub Action, combined with ArgoCD
+- Observability with Prometheus and Grafana
+
+## Terragrunt Pattern
 
 This repo is gradually adopting Terragrunt for deployable labs.
 
-## Purpose
+### Purpose
 
 Terragrunt is used here to centralize shared Terraform runtime configuration:
 
@@ -13,7 +23,7 @@ Terragrunt is used here to centralize shared Terraform runtime configuration:
 
 Terraform code in each lab should stay focused on infrastructure resources. Shared runtime concerns belong in `root.hcl`.
 
-## Current Pattern
+### Current Pattern
 
 - `root.hcl`
   - defines shared `remote_state`
@@ -31,7 +41,7 @@ include "root" {
 }
 ```
 
-## State Layout
+### State Layout
 
 Terragrunt stores each unit's state in the shared S3 bucket using the unit path as the state key.
 
@@ -39,7 +49,7 @@ Example state key:
 
 `labs/01-single-web-server/stage/services/webserver-cluster/terraform.tfstate`
 
-## Workflow
+### Workflow
 
 Run Terragrunt from a Terragrunt-managed unit directory.
 
@@ -56,7 +66,7 @@ terragrunt plan
 terragrunt apply
 ```
 
-## Conventions
+### Conventions
 
 - Do not add `backend "s3"` blocks to Terraform files in Terragrunt-managed units.
 - Do not duplicate `provider "aws"` blocks in Terragrunt-managed units.
