@@ -7,7 +7,10 @@ COPY package*.json ./
 
 ENV NODE_ENV=production
 # clean install without dev dependencies
-RUN npm ci --only=production
+# use cache mount to speed up installing of existing depencencies
+RUN --mount=type=cache,target=/usr/src/app/.npm \
+  npm set cache /usr/src/app/.npm && \
+  npm ci --only=production
 
 # avoid using root user for security reason
 USER node
