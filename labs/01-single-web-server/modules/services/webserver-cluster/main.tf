@@ -5,7 +5,7 @@ resource "aws_launch_template" "web_launch_template" {
   vpc_security_group_ids = [aws_security_group.web_instance_sg.id]
 
   # manage the BASH script in a separate template file with dedicate API
-  user_data = base64encode(templatefile("user-data.sh", {
+  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
     server_port = var.server_port
     db_address  = data.terraform_remote_state.db.outputs.address
     db_port     = data.terraform_remote_state.db.outputs.port
@@ -62,7 +62,7 @@ resource "aws_autoscaling_group" "web_asg" {
 
 # The ALB itself in different subnet under default VPC
 resource "aws_lb" "web_alb" {
-  name               = "single-web-server-alb"
+  name               = "single-web-server-${var.cluster_name}-alb"
   load_balancer_type = "application"
   subnets            = data.aws_subnets.default.ids
   security_groups    = [aws_security_group.web_alb_sg.id]
@@ -85,7 +85,7 @@ resource "aws_lb_listener" "web_http" {
 }
 
 resource "aws_lb_target_group" "web_target_group" {
-  name     = "single-web-server-tg"
+  name     = "single-web-server-${var.cluster_name}-tg"
   port     = var.server_port
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
