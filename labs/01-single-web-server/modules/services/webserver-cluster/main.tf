@@ -125,31 +125,35 @@ resource "aws_lb_listener_rule" "web_http_rule" {
 # - use 'reverse proxies' and 'load balancers' as the gate
 resource "aws_security_group" "web_instance_sg" {
   name = "single-web-server-${var.cluster_name}-instance-sg"
-  ingress {
-    from_port   = var.server_port
-    to_port     = var.server_port
-    protocol    = local.tcp_protocol
-    cidr_blocks = local.all_ips
-  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "web_instance_allow_server_port" {
+  security_group_id = aws_security_group.web_instance_sg.id
+
+  from_port   = var.server_port
+  to_port     = var.server_port
+  ip_protocol = local.tcp_protocol
+  cidr_ipv4   = local.all_ips
 }
 
 resource "aws_security_group" "web_alb_sg" {
   name = "single-web-server-${var.cluster_name}-alb-sg"
+}
 
-  # allow inbound HTTP requests
-  ingress {
-    from_port   = local.http_port
-    to_port     = local.http_port
-    protocol    = local.tcp_protocol
-    cidr_blocks = local.all_ips
-  }
+# allow inbound HTTP requests
+resource "aws_vpc_security_group_ingress_rule" "web_alg_allow_http_inbound" {
+  security_group_id = aws_security_group.web_alb_sg.id
 
-  # allow all outbound requests
-  egress {
-    from_port   = local.any_port
-    to_port     = local.any_port
-    protocol    = local.any_protocol
-    cidr_blocks = local.all_ips
-  }
+  from_port   = local.http_port
+  to_port     = local.http_port
+  ip_protocol = local.tcp_protocol
+  cidr_ipv4   = local.all_ips
+}
 
+# allow all outbound requests
+resource "aws_vpc_security_group_egress_rule" "web_alb_allow_all_outbound" {
+  security_group_id = aws_security_group.web_alb_sg.id
+
+  ip_protocol = local.any_protocol
+  cidr_ipv4   = local.all_ips
 }
