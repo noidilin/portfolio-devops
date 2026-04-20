@@ -14,8 +14,10 @@ RUN --mount=type=cache,target=/usr/src/app/.npm \
 
 # avoid using root user for security reason
 USER node
+# copy healthcheck script
+COPY --chown=node:node ./healthcheck/ .
 # copy remaining source code afte installing depencencies
-COPY --chown=node:node ./src .
+COPY --chown=node:node ./src/ .
 
 # indicate the desired port
 EXPOSE 3000
