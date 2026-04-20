@@ -20,6 +20,8 @@ data "aws_subnets" "default" {
   }
 }
 
+# `terraform_remote_state` allows you to access "output" from a remote state file (read-only)
+# terraform locates the state from information we specified
 data "terraform_remote_state" "db" {
   backend = "s3"
   config = {

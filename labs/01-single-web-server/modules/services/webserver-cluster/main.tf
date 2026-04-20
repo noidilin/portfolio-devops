@@ -4,6 +4,7 @@ resource "aws_launch_template" "web_launch_template" {
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.web_instance_sg.id]
 
+  # manage the BASH script in a separate template file with dedicate API
   user_data = base64encode(templatefile("user-data.sh", {
     server_port = var.server_port
     db_address  = data.terraform_remote_state.db.outputs.address
