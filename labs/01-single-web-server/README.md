@@ -138,6 +138,12 @@ Use `moved` when:
   - moving resource into module
   - refactoring module structure
 
+### Directory convention `live` + `modules`
+
+We separate the root module used directly for infrastructure under `live` dir, and keep all the reusable child modules under `modules` to make the boundary more clear, and also use a different version control repository to manage each modules.
+
+I didn't host the module on a dedicated repo due to my current repo's structure, and since my implementation has some latest practice advocated by terraform, such as `aws_vpc_security_group_egress_rule` instead of `aws_security_group_rule`, this lab cannot use the provided repo from the book either. Hence, I will keep using the local modules.
+
 ---
 
 ## Refinement Plan
