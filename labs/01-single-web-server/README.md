@@ -71,6 +71,73 @@ Here is the recommended separation from the book:
 > [!NOTE]
 > The remote state can be further used as a data source, and we can fetch output values from remote terraform state with `data.terraform_remote_state.<NAME>.outputs.<ATTRIBUTE>`. Note that the we have to setup the terraform data source in `dependencies.tf` first.
 
+## Ch 4: Avoid duplication with Terraform modules
+
+We implement a better separation of concern with dedicated directory for each environments/components, which results in lots of duplicated configuration files. Terraform has a solution for us to share the reusable configuration across the separated directories, called module.
+
+> Any set of Terraform configuration files in a folder is a module.
+
+### Variables
+
+- input parameters: `vars-required.tf`
+- exported values: `outputs.tf`
+
+We needs to pass in variables to child/reusable modules to create different variation for our needs. For example, stage and production environment might need to pass in different parameters to setup resources.
+
+I use `.auto.tfvars` to handle required variables in previous chapter, but variables in `.auto.tfvars` only passed in as variables of root module, and they won't be passed to child module automatically. Similarly, the exported values from child modules also won't get exported automatically in the root module.
+
+Therefore, we need to wire up the input parameters with:
+
+- `vars-required.tf`: setup required variables in root module
+- `.auto.tfvars`: actual values to pass in
+- `main.tf`: configure `module` to pass root module variables into child module
+
+In addition, wire up the exported values with:
+
+- `outputs.tf`: we can reference module outputs with `module.<MODULE_NAME>.<OUTPUT_NAME>`
+
+### Inline Blocks and the `import` fix
+
+When extracting the inline rules block of security group to a standalone SG rule resources, terraform start treating those rules as different state objects. The AWS rules already existed, but terraform no longer had matching standalone rule entries in state. So on apply, it tried to create them again and AWS rejected that with `InvalidPermission.Duplicate`
+
+The root cause of this mismatch is that inline rules are not first-class terraform resources with their own addresses in state. They are attributes nested under the security group resources. Therefore, terraform cannot automatically infer the 'old inline rule' is the same thing as the 'new standalone SG rule resource'.
+
+The solution is to attach the existing remote rules to the newly created SG rule with real AWS rule IDs using `import` block. The `import` block tells terraform that this resource address in configuration corresponds to this already-existing remote object. The `import` allows terraform to understand this new terraform resource is already backed by AWS rule, so terraform stops trying to create a duplicate.
+
+I use the AWS MCP tool to locate the corresponding SG rule's ID, and the MCP tool is using these `aws` command to investigate:
+
+- `aws ec2 describe-security-group-rules`
+
+#### What about `moved`
+
+I tried to use `moved` to remapped the previous implementation to the standalone resources, but can't manage to fix the issue. It seems like `moved` only remaps 'state addresses', not remote objects.
+
+The use case is more like these scenario:
+
+- resource renamed
+- resource moved into a module (refactor)
+
+Terraform can move state from old address to new address because both sides are terraform resource 'addresses', while in our case, the old SG rules are merely inline nested block inside `aws_security_group`. There is no state address from the old implementation for terraform to move from.
+
+#### The bottom line
+
+To sum up, the real issue occurred because the migration changed Terraform state shape without changing the AWS objects, so Terraform needed help to re-link the new resource addresses to the already-existing rules.
+
+Use `import` when:
+
+- remote object already exists, but state doesn't track it with resources address
+  - manually created, created by older config
+- terraform config now declares a resource for it
+  - adopting existing infrastructure into terraform
+
+Use `moved` when:
+
+- remote object is already manged by Terraform
+- changes are made to resource address
+  - renaming resource
+  - moving resource into module
+  - refactoring module structure
+
 ---
 
 ## Refinement Plan
