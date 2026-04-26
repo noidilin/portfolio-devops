@@ -1,0 +1,20 @@
+FROM diamol/node:2e
+
+ENV MAX_ALLOCATION_MB=4096 \
+  LOOP_ALLOCATION_MB=512 \
+  LOOP_INTERVAL_MS=2000
+
+# dependency check at startup
+# `memory-hog.js` is the main app
+CMD node memory-check.js && \
+  node memory-hog.js
+
+# use the same check for the HEALTHCHECK instruction
+# when the app return 4096MB, the health check won't pass
+# however, the health check runs every 5s, 
+# so the health state won't change immediately
+HEALTHCHECK --interval=5s \
+  CMD node memory-check.js
+
+WORKDIR /app
+COPY src/ .
