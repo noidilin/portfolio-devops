@@ -1,0 +1,25 @@
+services:
+  todo-web:
+    ports:
+      - "${TODO_WEB_PORT}:8080"
+    environment:
+      - Database:Provider=Postgres
+    env_file:
+      - ./config/logging.information.env
+    networks:
+      - app-net
+
+  todo-db:
+    image: diamol/postgres:2e-12
+    ports:
+      - "${TODO_DB_PORT}:5432"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    name: todo-test
+
+secrets:
+  todo-db-connection:
+    file: ./config/secrets.json
