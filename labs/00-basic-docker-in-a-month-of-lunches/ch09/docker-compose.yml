@@ -1,0 +1,28 @@
+services:
+  todo-list:
+    image: diamol/ch09-todo-list:2e
+    ports:
+      - "8080:8080"
+    networks:
+      - app-net
+
+  prometheus:
+    image: diamol/ch09-lab-prometheus:soln
+    ports:
+      - "9090:9090"
+    networks:
+      - app-net
+
+  grafana:
+    image: diamol/ch09-lab-grafana:soln
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    name: nat
+    external: true
