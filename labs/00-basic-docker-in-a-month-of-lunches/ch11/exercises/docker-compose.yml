@@ -1,0 +1,21 @@
+# PERF: Setting flexible image name with different environment var for DEV and CI
+# Since default value for env var with `:-` syntax
+# DEV: no env var set -> image: (docker.io/diamol/ch11-numbers-api:2e-v3-build-local)
+# CI: when same builds run in jenkins in this exercise
+# - registry will be local registry
+# - build number will be set as incrementing number by jenkins
+
+services:
+  numbers-api:
+    image: ${REGISTRY:-docker.io}/diamol/ch11-numbers-api:2e-v3-build-${BUILD_NUMBER:-local}
+    networks:
+      - app-net
+
+  numbers-web:
+    image: ${REGISTRY:-docker.io}/diamol/ch11-numbers-web:2e-v3-build-${BUILD_NUMBER:-local}
+    environment:
+      - RngApi__Url=http://numbers-api/rng
+    depends_on:
+      - numbers-api
+    networks:
+      - app-net

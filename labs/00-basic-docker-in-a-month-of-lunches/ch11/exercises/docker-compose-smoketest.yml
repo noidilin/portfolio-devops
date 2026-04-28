@@ -1,0 +1,11 @@
+services:
+  numbers-api:
+    ports:
+      - 80
+
+  numbers-web:
+    ports:
+      - 80
+
+networks:
+  app-net:

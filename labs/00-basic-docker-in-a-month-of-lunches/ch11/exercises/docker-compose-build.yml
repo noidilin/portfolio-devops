@@ -1,0 +1,33 @@
+# NOTE: ARG in Dockerfile and args in docker compose
+# There are ARG instructions in the dockerfiles we are going to build with docker compose
+
+x-args: &args
+  args:
+    # NOTE: default value in docker compose and Dockerfile ARG
+    # default value in compose file: build will succeed when running outside of CI env
+    # default value in Dockerfile: image build correctly even if we don't use docker compose
+    BUILD_NUMBER: ${BUILD_NUMBER:-0}
+    BUILD_TAG: ${BUILD_TAG:-local}
+
+services:
+  numbers-api:
+    build:
+      # NOTE: context
+      # the path Docker use as working directory for the build
+      # in this example, we `cd` into `numbers` dir before we build image
+      context: numbers
+
+      # NOTE: the dockerfile is relative to current working directory
+      dockerfile: numbers-api/Dockerfile.v4
+
+      # NOTE: needs to match the keys specified as ARG instructions in Dockerfile
+      <<: *args
+
+  numbers-web:
+    build:
+      context: numbers
+      dockerfile: numbers-web/Dockerfile.v4
+      <<: *args
+
+networks:
+  app-net:

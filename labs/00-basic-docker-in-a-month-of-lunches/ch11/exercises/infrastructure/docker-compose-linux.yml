@@ -1,0 +1,5 @@
+services:
+  # volumes are binding to docker socket, which is the address of Docker API
+  jenkins:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

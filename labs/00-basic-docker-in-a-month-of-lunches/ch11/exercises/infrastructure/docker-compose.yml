@@ -1,0 +1,29 @@
+# NOTE: the complexity of the build process is captured in Dockerfiles and docker compose file
+# The jenkins connects to the Docker Engine to run `docker` and `docker compose` command
+# It also connect to Git server and Docker registry by DNS through same network "infrastructure"
+
+services:
+  gogs:
+    image: diamol/gogs:2e
+    ports:
+      - "3000:3000"
+    networks:
+      - infrastructure
+
+  registry.local:
+    image: diamol/registry:2e
+    ports:
+      - "5010:5000"
+    networks:
+      - infrastructure
+
+  jenkins:
+    image: diamol/jenkins:2e
+    ports:
+      - "8080:8080"
+    networks:
+      - infrastructure
+
+networks:
+  infrastructure:
+    name: build-infrastructure

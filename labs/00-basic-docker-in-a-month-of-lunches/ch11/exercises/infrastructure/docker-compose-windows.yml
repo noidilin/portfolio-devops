@@ -1,0 +1,6 @@
+services:
+  jenkins:
+    volumes:
+      - type: npipe
+        source: \\.\pipe\docker_engine
+        target: \\.\pipe\docker_engine
