@@ -1,0 +1,8 @@
+services:
+  todo-web:
+    build:
+      context: todo-list
+      dockerfile: Dockerfile
+      # since there is a ARG instruction in the Dockerfile
+      args:
+        BUILD_NUMBER: ${BUILD_NUMBER:-0}

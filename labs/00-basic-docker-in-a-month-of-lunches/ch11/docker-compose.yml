@@ -1,0 +1,8 @@
+services:
+  todo-web:
+    image: ${REGISTRY:-docker.io}/diamol/ch11-todo-list:2e
+    networks:
+      - app-net
+
+networks:
+  app-net:
