@@ -1,0 +1,31 @@
+# NOTE: test
+# If you follow the Sign Up link in the web app and enter some details
+# you'll see a Thank You page and you can check your data is saved
+# by running a PowerShell command in the SQL Server container:
+# `docker exec solution-SIGNUP-DB-DEV01-1 powershell "Invoke-SqlCmd -Query 'SELECT * FROM Prospects' -Database SignUp -TrustServerCertificate"`
+
+services:
+  # name comes from requirement
+  SIGNUP-DB-DEV01:
+    image: diamol/mssql:2e
+    # comes from requirement
+    environment:
+      - MSSQL_SA_PASSWORD=DockerCon!!!
+    networks:
+      - signup-net
+
+  signup-web:
+    image: signup-web:2e
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8088:80
+    depends_on:
+      - SIGNUP-DB-DEV01
+    networks:
+      - signup-net
+
+networks:
+  signup-net:
+
