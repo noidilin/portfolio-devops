@@ -7,5 +7,7 @@ spec:
     app: synergychat-web
   ports:
     - protocol: TCP
+      # web-service:80
       port: 80
+      # forward to pod `8080`
       targetPort: 8080

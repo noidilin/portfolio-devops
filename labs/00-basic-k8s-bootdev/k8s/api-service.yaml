@@ -5,7 +5,6 @@ metadata:
 spec:
   selector:
     app: synergychat-api
-  type: ClusterIP
   ports:
     - protocol: TCP
       port: 80

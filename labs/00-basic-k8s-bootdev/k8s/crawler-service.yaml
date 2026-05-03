@@ -8,5 +8,7 @@ spec:
   type: ClusterIP
   ports:
     - protocol: TCP
+      # crawler-service:80
       port: 80
+      # forward to pod `8080`
       targetPort: 8080
