@@ -14,6 +14,10 @@ spec:
       labels:
         app: synergychat-api
     spec:
+      volumes:
+        - name: synergychat-api-volume
+          persistentVolumeClaim:
+            claimName: synergychat-api-pvc
       containers:
         - image: bootdotdev/synergychat-api:latest
           name: synergychat-api
@@ -23,3 +27,11 @@ spec:
                 configMapKeyRef:
                   name: synergychat-api-configmap
                   key: API_PORT
+            - name: API_DB_FILEPATH
+              valueFrom:
+                configMapKeyRef:
+                  name: synergychat-api-configmap
+                  key: API_DB_FILEPATH
+          volumeMounts:
+            - name: synergychat-api-volume
+              mountPath: /persist
