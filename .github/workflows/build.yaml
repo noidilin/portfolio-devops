@@ -1,0 +1,19 @@
+name: build
+
+on:
+  push:
+    paths:
+      - ".github/workflows/build.yaml"
+      - "labs/basic-docker-in-a-month-of-lunches/ch16/cicd/build.ps1"
+      - "labs/basic-docker-in-a-month-of-lunches/ch16/src/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: build
+        working-directory: cicd
+        run: ./build.ps1
+        shell: pwsh
