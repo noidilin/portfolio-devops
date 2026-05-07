@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/build.yaml"
       - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/build.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
       - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/**"
   workflow_dispatch:
 
