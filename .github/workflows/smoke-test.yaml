@@ -1,0 +1,38 @@
+name: smoke-test
+
+on:
+  push:
+    paths:
+      - ".github/workflows/smoke-test.yaml"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/smoke-test.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/docker-compose*.yml"
+  workflow_run:
+    workflows: [package-staging]
+    types: [completed]
+    branches:
+      - "main"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  REPOSITORY: ${{ github.repository_owner }}
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@master
+      - name: GHCR login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: smoke-test
+        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        run: ./smoke-test.ps1
+        shell: pwsh
+
