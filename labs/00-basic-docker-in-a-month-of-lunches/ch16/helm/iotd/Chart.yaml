@@ -1,0 +1,6 @@
+apiVersion: v2
+name: iotd
+description: Sample app for the book Learn Docker in a Month of Lunches (Second Edition)
+type: application
+version: 2.16.0
+appVersion: "2.16.0"

@@ -1,0 +1,50 @@
+name: deploy
+
+on:
+  push:
+    paths:
+      - ".github/workflows/deploy.yaml"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/deploy.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/docker-compose*.yml"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/helm/**"
+  workflow_run:
+    workflows: [package-release]
+    types: [completed]
+    branches:
+      - "main"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  REPOSITORY: ${{ github.repository_owner }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@master
+      - name: GHCR login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: create-cluster
+        uses: AbsaOSS/k3d-action@v2
+        with:
+          cluster-name: ch16
+          args: >-
+            --agents 1 -p "8016:8016@agent:0:direct" --no-lb --k3s-arg
+            "--no-deploy=traefik,servicelb,metrics-server@server:*"
+      - name: set-context
+        run: |
+          kubectl config use-context k3d-ch16
+      - name: deploy
+        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        run: ./deploy.ps1
+        shell: pwsh
+      # TODO - smoke test
+

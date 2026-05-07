@@ -1,0 +1,8 @@
+api:
+  image: diamol/ch04-image-of-the-day:2e
+
+log: 
+  image: diamol/ch04-access-log:2e
+
+web: 
+  image: diamol/ch04-image-gallery:2e
