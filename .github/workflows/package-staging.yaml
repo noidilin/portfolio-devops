@@ -1,0 +1,56 @@
+name: package-staging
+
+on:
+  push:
+    paths:
+      - ".github/workflows/package-staging.yaml"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/build-push.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/tag-push.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/**"
+  # runs after the build workflow completes successfully
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+    branches:
+      - "main"
+  # weekly scheduled run
+  schedule:
+    - cron: "0 23 * * 0" # Every Sunday at 23:00
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  REPOSITORY: ${{ github.repository_owner }}
+  BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@master
+      - name: GHCR login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build-push
+        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        run: ./build-push.ps1
+        shell: pwsh
+        env:
+          BUILD_ID: ${{ github.workflow_ref }}
+          COMMIT_SHA: ${{ github.sha	}}
+      - name: push-staging
+        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        run: ./tag-push.ps1 -From build -To staging
+        shell: pwsh
+    permissions:
+      contents: read
+      packages: write
+
+# see docs for GitHub context:
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs#github-context
