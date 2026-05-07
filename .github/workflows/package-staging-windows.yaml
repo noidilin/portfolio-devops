@@ -1,14 +1,14 @@
 name: package-staging-windows
 
 on:
-  push:
-    paths:
-      - ".github/workflows/package-staging-windows.yaml"
-  workflow_run:
-    workflows: [package-staging]
-    types: [completed]
-    branches:
-      - "main"
+  # push:
+  #   paths:
+  #     - ".github/workflows/package-staging-windows.yaml"
+  # workflow_run:
+  #   workflows: [package-staging]
+  #   types: [completed]
+  #   branches:
+  #     - "main"
   workflow_dispatch:
 
 env:

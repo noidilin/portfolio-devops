@@ -1,14 +1,14 @@
 name: smoke-test-windows
 
 on:
-  push:
-    paths:
-      - ".github/workflows/smoke-test-windows.yaml"
-  workflow_run:
-    workflows: [package-staging-windows]
-    types: [completed]
-    branches:
-      - "main"
+  # push:
+  #   paths:
+  #     - ".github/workflows/smoke-test-windows.yaml"
+  # workflow_run:
+  #   workflows: [package-staging-windows]
+  #   types: [completed]
+  #   branches:
+  #     - "main"
   workflow_dispatch:
 
 env:
@@ -32,4 +32,3 @@ jobs:
         working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
         run: ./smoke-test.ps1
         shell: pwsh
-

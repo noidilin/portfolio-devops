@@ -1,14 +1,14 @@
 name: package-release-windows
 
 on:
-  push:
-    paths:
-      - ".github/workflows/package-release-windows.yaml"
-  workflow_run:
-    workflows: [smoke-test-windows]
-    types: [completed]
-    branches:
-      - "main"
+  # push:
+  #   paths:
+  #     - ".github/workflows/package-release-windows.yaml"
+  # workflow_run:
+  #   workflows: [smoke-test-windows]
+  #   types: [completed]
+  #   branches:
+  #     - "main"
   workflow_dispatch:
 
 env:
@@ -35,4 +35,3 @@ jobs:
     permissions:
       contents: read
       packages: write
-
