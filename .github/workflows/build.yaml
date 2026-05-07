@@ -4,8 +4,8 @@ on:
   push:
     paths:
       - ".github/workflows/build.yaml"
-      - "labs/basic-docker-in-a-month-of-lunches/ch16/cicd/build.ps1"
-      - "labs/basic-docker-in-a-month-of-lunches/ch16/src/**"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/build.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/**"
   workflow_dispatch:
 
 jobs:
@@ -14,6 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: build
-        working-directory: cicd
+        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
         run: ./build.ps1
         shell: pwsh
