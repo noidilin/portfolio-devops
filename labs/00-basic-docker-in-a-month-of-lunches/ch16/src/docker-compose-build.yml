@@ -1,0 +1,21 @@
+services:
+  access-log:
+    build:
+      context: ./access-log
+      args:
+        BUILD_ID: ${BUILD_ID}
+        COMMIT_SHA: ${COMMIT_SHA}
+        
+  image-of-the-day:
+    build:
+      context: ./image-of-the-day
+      args:
+        BUILD_ID: ${BUILD_ID}
+        COMMIT_SHA: ${COMMIT_SHA}
+
+  image-gallery:
+    build:
+      context: ./image-gallery
+      args:
+        BUILD_ID: ${BUILD_ID}
+        COMMIT_SHA: ${COMMIT_SHA}

@@ -1,0 +1,27 @@
+services:
+  access-log:
+    image: ch16-access-log:2e
+    ports:
+      - "8012:80"
+    networks:
+      - app-net
+
+  image-of-the-day:
+    image: ch16-image-of-the-day:2e
+    ports:
+      - "8011:80"
+    networks:
+      - app-net
+
+  image-gallery:
+    image: ch16-image-gallery:2e
+    ports:
+      - "8010:80"
+    depends_on:
+      - access-log
+      - image-of-the-day
+    networks:
+      - app-net
+
+networks:
+  app-net:
