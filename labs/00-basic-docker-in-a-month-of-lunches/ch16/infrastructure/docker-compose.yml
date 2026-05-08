@@ -1,0 +1,5 @@
+services:
+  registry.local:
+    image: diamol/registry:2e
+    ports:
+      - "5010:5000"
