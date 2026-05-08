@@ -1,5 +1,30 @@
 # Note
 
+## Structure a Portable Build Process
+
+### Do as much as you can in Docker
+
+- Compile code and run unit tests in your Dockerfile, and you have no dependencies to install to build the app and gain some confidence that all is well.
+- Model your app in Compose, and you can easily spin up a smoke-test environment and centralize your image naming scheme
+
+### Do everything else in scripts
+
+- Isolate each build stage, and you’ll have a set of simple, manageable scripts that are mostly running familiar Docker commands.
+- The role of the scripts is to coordinate work and act as an intermediatory between Docker and the build service transforming pipeline context such as the build number into environment variables used by Docker and Compose
+
+### Support both the developer workflow and the operations workflow
+
+- The pipeline will mainly run in the CI/CD service, but if you keep your scripts flexible, then they’re good for developers to use too
+- Being able to build code and run tests using the exact same infrastructure as the build service should eliminate situations where developers check in failing tests and break the build, or at least give you a good justification to shout at them.
+
+### Don’t fall for all the shiny things the build service offers
+
+- Any proprietary features you use will make it harder to move to another provider
+- I can’t think of a single long-term project I've worked on that hasn't moved between services eventually, and those that had scripted builds were the easiest to migrate
+- You need to be pragmatic and not spend project time building things the service does for free, but you should try to keep provider-specific features to a minimum
+
+---
+
 ## Overview
 
 Docker Compose is being used for two related purposes
