@@ -1,13 +1,12 @@
-name: push-manifest-list
+name: diamol-ch16-push-manifest-list
 
 on:
   push:
     paths:
-      - ".github/workflows/push-manifest-list.yaml"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/push-manifest-lis\
-        t.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/**"
+      - ".github/workflows/diamol-ch16-push-manifest-list.yaml"
+      - "labs/00-docker/diamol/ch16/cicd/push-manifest-list.ps1"
+      - "labs/00-docker/diamol/ch16/cicd/set-vars.ps1"
+      - "labs/00-docker/diamol/ch16/src/**"
   workflow_dispatch:
 
 env:
@@ -28,10 +27,9 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: push-release
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        working-directory: labs/00-docker/diamol/ch16/cicd
         run: ./push-manifest-list.ps1
         shell: pwsh
     permissions:
       contents: read
       packages: write
-

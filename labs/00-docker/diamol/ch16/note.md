@@ -119,8 +119,8 @@ docker compose `
 
 ## CI/CD Workflows
 
-- `build.yaml`: validate that each component builds and its Dockerfile test stage passes
-- `package-staging.yaml`: build and push build-image with build number and stable staging-image
-- `smoke-test.yaml`: test staging image
-- `package-release.yaml`: promote already-tested staging image with release image tag
-- `deploy.yaml`: deploy release images with Helm to Kubernetes
+- `diamol-ch16-build.yaml`: validate that each component builds and its Dockerfile test stage passes
+- `diamol-ch16-package-staging.yaml`: build and push build-image with build number and stable staging-image
+- `diamol-ch16-smoke-test.yaml`: test staging image
+- `diamol-ch16-package-release.yaml`: promote already-tested staging image with release image tag
+- `diamol-ch16-deploy.yaml`: deploy release images with Helm to Kubernetes

@@ -1,17 +1,14 @@
-name: package-release
+name: diamol-ch16-package-release-windows
 
 on:
-  push:
-    paths:
-      - ".github/workflows/package-release.yaml"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/tag-push.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/docker-compose*.yml"
-  workflow_run:
-    workflows: [smoke-test]
-    types: [completed]
-    branches:
-      - "main"
+  # push:
+  #   paths:
+  #     - ".github/workflows/diamol-ch16-package-release-windows.yaml"
+  # workflow_run:
+  #   workflows: [diamol-ch16-smoke-test-windows]
+  #   types: [completed]
+  #   branches:
+  #     - "main"
   workflow_dispatch:
 
 env:
@@ -20,7 +17,7 @@ env:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    runs-on: windows-2022
     if: ${{ github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -32,10 +29,9 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: push-release
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        working-directory: labs/00-docker/diamol/ch16/cicd
         run: ./tag-push.ps1 -From staging -To release
         shell: pwsh
     permissions:
       contents: read
       packages: write
-

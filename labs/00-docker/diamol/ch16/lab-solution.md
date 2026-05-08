@@ -22,7 +22,7 @@ Create a platform-neutral tag: `ch16-access-log:2e`, and let it becomes a manife
 
 - `./src/docker-compose-multi-platform-tags.yml`: defines the final shared release tags
 - `./cicd/push-manifest-list.ps1`: GitHub workflow logs into GHCR
-- `@repo-root/.github/workflows/push-manifest-list.yaml`: reads image names from Compose and creates Docker manifest list for each app component
+- `@repo-root/.github/workflows/diamol-ch16-push-manifest-list.yaml`: reads image names from Compose and creates Docker manifest list for each app component
 
 ## Commands Cheat Sheet
 

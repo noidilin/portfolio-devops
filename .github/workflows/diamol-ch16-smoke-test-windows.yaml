@@ -1,11 +1,11 @@
-name: smoke-test-windows
+name: diamol-ch16-smoke-test-windows
 
 on:
   # push:
   #   paths:
-  #     - ".github/workflows/smoke-test-windows.yaml"
+  #     - ".github/workflows/diamol-ch16-smoke-test-windows.yaml"
   # workflow_run:
-  #   workflows: [package-staging-windows]
+  #   workflows: [diamol-ch16-package-staging-windows]
   #   types: [completed]
   #   branches:
   #     - "main"
@@ -29,6 +29,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: smoke-test-windows
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        working-directory: labs/00-docker/diamol/ch16/cicd
         run: ./smoke-test.ps1
         shell: pwsh

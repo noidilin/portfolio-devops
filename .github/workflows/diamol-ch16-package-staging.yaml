@@ -1,16 +1,16 @@
-name: package-staging
+name: diamol-ch16-package-staging
 
 on:
   push:
     paths:
-      - ".github/workflows/package-staging.yaml"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/build-push.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/tag-push.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/**"
+      - ".github/workflows/diamol-ch16-package-staging.yaml"
+      - "labs/00-docker/diamol/ch16/cicd/build-push.ps1"
+      - "labs/00-docker/diamol/ch16/cicd/tag-push.ps1"
+      - "labs/00-docker/diamol/ch16/cicd/set-vars.ps1"
+      - "labs/00-docker/diamol/ch16/src/**"
   # runs after the build workflow completes successfully
   workflow_run:
-    workflows: [build]
+    workflows: [diamol-ch16-build]
     types: [completed]
     branches:
       - "main"
@@ -38,14 +38,14 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: build-push
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        working-directory: labs/00-docker/diamol/ch16/cicd
         run: ./build-push.ps1
         shell: pwsh
         env:
           BUILD_ID: ${{ github.workflow_ref }}
           COMMIT_SHA: ${{ github.sha	}}
       - name: push-staging
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        working-directory: labs/00-docker/diamol/ch16/cicd
         run: ./tag-push.ps1 -From build -To staging
         shell: pwsh
     permissions:

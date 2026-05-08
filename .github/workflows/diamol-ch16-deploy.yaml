@@ -1,15 +1,15 @@
-name: deploy
+name: diamol-ch16-deploy
 
 on:
   push:
     paths:
-      - ".github/workflows/deploy.yaml"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/deploy.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/docker-compose*.yml"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/helm/**"
+      - ".github/workflows/diamol-ch16-deploy.yaml"
+      - "labs/00-docker/diamol/ch16/cicd/deploy.ps1"
+      - "labs/00-docker/diamol/ch16/cicd/set-vars.ps1"
+      - "labs/00-docker/diamol/ch16/src/docker-compose*.yml"
+      - "labs/00-docker/diamol/ch16/helm/**"
   workflow_run:
-    workflows: [package-release]
+    workflows: [diamol-ch16-package-release]
     types: [completed]
     branches:
       - "main"
@@ -43,8 +43,7 @@ jobs:
         run: |
           kubectl config use-context k3d-ch16
       - name: deploy
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        working-directory: labs/00-docker/diamol/ch16/cicd
         run: ./deploy.ps1
         shell: pwsh
       # TODO - smoke test
-

@@ -1,14 +1,14 @@
-name: smoke-test
+name: diamol-ch16-package-release
 
 on:
   push:
     paths:
-      - ".github/workflows/smoke-test.yaml"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/smoke-test.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
-      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/docker-compose*.yml"
+      - ".github/workflows/diamol-ch16-package-release.yaml"
+      - "labs/00-docker/diamol/ch16/cicd/tag-push.ps1"
+      - "labs/00-docker/diamol/ch16/cicd/set-vars.ps1"
+      - "labs/00-docker/diamol/ch16/src/docker-compose*.yml"
   workflow_run:
-    workflows: [package-staging]
+    workflows: [diamol-ch16-smoke-test]
     types: [completed]
     branches:
       - "main"
@@ -19,7 +19,7 @@ env:
   REPOSITORY: ${{ github.repository_owner }}
 
 jobs:
-  smoke-test:
+  package:
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success' }}
@@ -31,8 +31,10 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: smoke-test
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
-        run: ./smoke-test.ps1
+      - name: push-release
+        working-directory: labs/00-docker/diamol/ch16/cicd
+        run: ./tag-push.ps1 -From staging -To release
         shell: pwsh
-
+    permissions:
+      contents: read
+      packages: write

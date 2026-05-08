@@ -1,11 +1,11 @@
-name: package-release-windows
+name: diamol-ch16-package-staging-windows
 
 on:
   # push:
   #   paths:
-  #     - ".github/workflows/package-release-windows.yaml"
+  #     - ".github/workflows/diamol-ch16-package-staging-windows.yaml"
   # workflow_run:
-  #   workflows: [smoke-test-windows]
+  #   workflows: [diamol-ch16-package-staging]
   #   types: [completed]
   #   branches:
   #     - "main"
@@ -14,9 +14,10 @@ on:
 env:
   REGISTRY: ghcr.io
   REPOSITORY: ${{ github.repository_owner }}
+  BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
-  package:
+  package-windows:
     runs-on: windows-2022
     if: ${{ github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success' }}
@@ -28,9 +29,16 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: push-release
-        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
-        run: ./tag-push.ps1 -From staging -To release
+      - name: build-push
+        working-directory: labs/00-docker/diamol/ch16/cicd
+        run: ./build-push.ps1
+        shell: pwsh
+        env:
+          BUILD_ID: ${{ github.workflow_ref }}
+          COMMIT_SHA: ${{ github.sha	}}
+      - name: push-staging
+        working-directory: labs/00-docker/diamol/ch16/cicd
+        run: ./tag-push.ps1 -From build -To staging
         shell: pwsh
     permissions:
       contents: read
