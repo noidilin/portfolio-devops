@@ -1,0 +1,37 @@
+name: push-manifest-list
+
+on:
+  push:
+    paths:
+      - ".github/workflows/push-manifest-list.yaml"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/push-manifest-lis\
+        t.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd/set-vars.ps1"
+      - "labs/00-basic-docker-in-a-month-of-lunches/ch16/src/**"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  REPOSITORY: ${{ github.repository_owner }}
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@master
+      - name: GHCR login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: push-release
+        working-directory: labs/00-basic-docker-in-a-month-of-lunches/ch16/cicd
+        run: ./push-manifest-list.ps1
+        shell: pwsh
+    permissions:
+      contents: read
+      packages: write
+

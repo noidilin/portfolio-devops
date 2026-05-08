@@ -1,0 +1,9 @@
+services:
+  access-log:
+    image: ${REGISTRY}/${REPOSITORY}/release/ch16-access-log:2e
+        
+  image-of-the-day:
+    image: ${REGISTRY}/${REPOSITORY}/release/ch16-image-of-the-day:2e
+
+  image-gallery:
+    image: ${REGISTRY}/${REPOSITORY}/release/ch16-image-gallery:2e
