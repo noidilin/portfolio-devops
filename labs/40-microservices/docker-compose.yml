@@ -1,4 +1,39 @@
 services:
+  db:
+    image: mongo:7.0.0
+    container_name: db
+    ports:
+      - "4000:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 })"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: always
+
+  db-fixture:
+    image: mongo:7.0.0
+    container_name: db-fixture
+    volumes:
+      - ./db-fixture:/fixtures:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      bash -c "mongoimport --host db --db video-streaming --collection videos --drop --file /fixtures/videos.json"
+    restart: "no"
+
+  azure-storage:
+    image: azure-storage
+    build:
+      context: ./azure-storage
+      dockerfile: Dockerfile
+    container_name: video-storage
+    env_file: ./azure-storage/.env
+    ports:
+      - "4001:80"
+    restart: "no"
+
   video-streaming:
     image: video-streaming
     build:
@@ -6,7 +41,14 @@ services:
       dockerfile: Dockerfile
     container_name: video-streaming
     ports:
-      - "4000:80"
+      - "4002:80"
     environment:
       - PORT=80
+      - DBHOST=mongodb://db:27017
+      - DBNAME=video-streaming
+      - VIDEO_STORAGE_HOST=video-storage
+      - VIDEO_STORAGE_PORT=80
+    depends_on:
+      db-fixture:
+        condition: service_completed_successfully
     restart: "no"
