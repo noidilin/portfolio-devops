@@ -1,13 +1,13 @@
 const express = require("express");
 const mongodb = require("mongodb");
-const amqp = require('amqplib');
+const amqp = require("amqplib");
 
 if (!process.env.PORT) {
     throw new Error("Please specify the port number for the HTTP server with the environment variable PORT.");
 }
 
 if (!process.env.DBHOST) {
-    throw new Error("Please specify the database host using environment variable DBHOST.");
+    throw new Error("Please specify the databse host using environment variable DBHOST.");
 }
 
 if (!process.env.DBNAME) {
@@ -27,7 +27,6 @@ const RABBIT = process.env.RABBIT;
 // Application entry point.
 //
 async function main() {
-
     const app = express();
 
     //
@@ -46,21 +45,36 @@ async function main() {
     const db  = client.db(DBNAME);
 
     //
-    // Gets the collection for storing video viewing history.
+    // Gets the collection for storing video metadata.
     //
-    const historyCollection = db.collection("history");
+    const videosCollection = db.collection("videos");
     
     //
-    // Connects to the RabbitMQ server.
+    // Connect to the RabbitMQ server.
     //
     const messagingConnection = await amqp.connect(RABBIT); 
-
-    console.log("Connected to RabbitMQ.");
 
     //
     // Creates a RabbitMQ messaging channel.
     //
     const messageChannel = await messagingConnection.createChannel(); 
+
+    // 
+    // Handler for incoming messages.
+    //
+    async function consumeViewedMessage(msg) {
+
+        const parsedMsg = JSON.parse(msg.content.toString()); // Parse the JSON message.
+        
+        console.log("Received a 'viewed' message:");
+        console.log(JSON.stringify(parsedMsg, null, 4)); // JUST PRINTING THE RECEIVED MESSAGE.
+
+        // ... ADD YOUR CODE HERE TO PROCESS THE MESSAGE ...
+
+        console.log("Acknowledging message was handled.");
+                
+        messageChannel.ack(msg); // If there is no error, acknowledge the message.
+    };
 
     //
     // Asserts that we have a "viewed" exchange.
@@ -82,30 +96,7 @@ async function main() {
     //
     // Start receiving messages from the anonymous queue.
     //
-    await messageChannel.consume(queue, async (msg)=> {
-        console.log("Received a 'viewed' message");
-
-        const parsedMsg = JSON.parse(msg.content.toString()); // Parse the JSON message.
-        
-        await historyCollection.insertOne({ videoPath: parsedMsg.videoPath }); // Record the "view" in the database.
-
-        console.log("Acknowledging message was handled.");
-                
-        messageChannel.ack(msg); // If there is no error, acknowledge the message.
-    });
-
-    //
-    // HTTP GET route to retrieve video viewing history.
-    //
-    app.get("/history", async (req, res) => {
-        const skip = parseInt(req.query.skip);
-        const limit = parseInt(req.query.limit);
-        const history = await videosCollection.find()
-            .skip(skip)
-            .limit(limit)
-            .toArray();
-        res.json({ history });
-    });
+    await messageChannel.consume(queue, consumeViewedMessage);
 
     //
     // Starts the HTTP server.
