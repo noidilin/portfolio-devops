@@ -132,3 +132,148 @@ This service waits until MongoDB is healthy, imports `db-fixture/videos.json` in
 
 > [!NOTE]
 > This is still a deliberately simple wiring approach. The streaming service depends on a specific hostname and port for storage. That is good enough for the lab, but a production system would usually use service discovery, stronger configuration management, and safer secret handling.
+
+## Ch05 - Communication between microservices
+
+Chapter 5 adds the first real service-to-service business communication, and the streaming service now starts talking to a new `history` service.
+
+The new flow is:
+
+```txt
+video-streaming
+  -> azure-storage, fetch the video
+  -> history, record that the video was viewed
+```
+
+### DEV and PROD environment with dedicated Dockerfile
+
+The `history` service now has separate Dockerfiles for different goals:
+
+- `Dockerfile-dev` keeps the feedback loop fast with bind-mounted source code and `nodemon`.
+- `Dockerfile-prod` builds a self-contained image with `npm ci --omit=dev` and copied source files.
+
+This matters more as the number of services grows. Development containers should be easy to change and restart. Production containers should be predictable, repeatable, and independent from the host machine.
+
+### Synchronous communication between microservices
+
+The current communication style is synchronous HTTP. `video-streaming` sends a `POST` request to the Compose service name `history`:
+
+```js
+const req = http.request("http://history/viewed", postOptions);
+req.write(JSON.stringify({ videoPath }));
+req.end();
+```
+
+The `history` service receives that request and stores the viewed video path:
+
+```js
+app.post("/viewed", async (req, res) => {
+  await historyCollection.insertOne({ videoPath: req.body.videoPath });
+  res.sendStatus(200);
+});
+```
+
+The benefit is simplicity. HTTP is easy to understand, easy to test, and easy to debug with logs or curl. Docker Compose DNS also keeps the local setup clean: `video-streaming` can call `http://history/viewed` without knowing container IPs or host ports.
+
+The tradeoff is coupling. With synchronous communication, the caller depends on the receiver being reachable at request time. If `history` is down, slow, or misconfigured, the streaming service has to decide whether to fail the user request, wait, retry, or ignore the history failure. This is fine for a lab and for simple request/response workflows, but it becomes risky when the side effect is not required for the main user action.
+
+For this specific case, recording history feels like a secondary event. The user mainly wants the video to stream. That makes this a good example of where asynchronous messaging could eventually be better: `video-streaming` could publish a "video viewed" event and continue streaming, while `history` processes the event independently.
+
+### Asynchronous communication between microservices
+
+The next step replaces the direct `video-streaming -> history` HTTP call with RabbitMQ. Instead of asking `history` to record the view during the request, `video-streaming` publishes a small message and keeps doing its own job: streaming the video.
+
+The new flow looks like this:
+
+```txt
+Browser
+  -> video-streaming, request video
+    -> RabbitMQ, publish "viewed" message
+      -> history, consume message later
+        -> MongoDB, store viewing history
+```
+
+This changes the relationship between the services. `video-streaming` no longer needs to know where the `history` API lives, which route to call, or whether `history` is ready at that exact moment. Both services only need the same broker address:
+
+```yaml
+RABBIT=amqp://guest:guest@rabbit:5672
+```
+
+Docker Compose runs RabbitMQ as the `rabbit` service, so the same Compose DNS idea still applies. Inside the Docker network, `rabbit` resolves to the RabbitMQ container. The broker listens on `5672` for application traffic, and the management UI is exposed on `15672` for local debugging.
+
+#### Make sure RabbitMQ server is up
+
+RabbitMQ is now shared infrastructure for the microservices. The Compose file starts it with the management image:
+
+```yaml
+rabbit:
+  image: rabbitmq:3.12.4-management
+  ports:
+    - "5672:5672"
+    - "15672:15672"
+```
+
+Both `video-streaming` and `history` declare `depends_on: rabbit`, but that only controls startup order. The app code still needs to connect to the broker before it can publish or consume messages.
+
+The Dockerfiles add one extra guard before starting Node:
+
+```dockerfile
+CMD npm install --prefer-offline && \
+    npx wait-port rabbit:5672 && \
+    npm run start:dev
+```
+
+`npx wait-port rabbit:5672` blocks the container startup command until the RabbitMQ TCP port is reachable from inside the Compose network. This closes the gap left by `depends_on`: Compose may start the `rabbit` container first, but RabbitMQ can still need a few more seconds before it accepts AMQP connections. Waiting on `rabbit:5672` makes local development less flaky because `video-streaming` and `history` do not immediately crash just because the broker process is still warming up.
+
+In `video-streaming`, startup now begins by connecting to RabbitMQ and opening a channel:
+
+```js
+const messagingConnection = await amqp.connect(RABBIT);
+const messageChannel = await messagingConnection.createChannel();
+```
+
+After that, the communication pattern evolves in two steps: first a single queue for one receiver, then a fanout exchange for many receivers.
+
+#### Sending and receiving single recipient messages
+
+The first RabbitMQ version uses one queue named `viewed`. When a video is streamed, `video-streaming` publishes a JSON message directly to that queue:
+
+```js
+const msg = { videoPath };
+messageChannel.publish("", "viewed", Buffer.from(JSON.stringify(msg)));
+```
+
+The empty exchange name uses RabbitMQ's default exchange. In that mode, the routing key is the queue name, so `"viewed"` sends the message to the `viewed` queue. The `history` service consumes from that queue, writes the view to MongoDB, and only then acknowledges the message:
+
+```js
+await messageChannel.consume("viewed", async (msg) => {
+  const parsedMsg = JSON.parse(msg.content.toString());
+  await historyCollection.insertOne({ videoPath: parsedMsg.videoPath });
+  messageChannel.ack(msg);
+});
+```
+
+This is a good fit when exactly one service should handle the work. The event is still asynchronous, but the queue behaves like a single work lane: one published `viewed` message is meant for one consumer.
+
+#### Sending and receiving multiple recipient messages
+
+The latest step changes the model from direct queue delivery to broadcasting. `video-streaming` now publishes the `viewed` event to a RabbitMQ `fanout` exchange:
+
+```js
+await messageChannel.assertExchange("viewed", "fanout");
+messageChannel.publish("viewed", "", Buffer.from(JSON.stringify(msg)));
+```
+
+A fanout exchange ignores routing keys and copies each message to every queue bound to it. That means `video-streaming` no longer decides who receives the event. It only announces that a video was viewed.
+
+Each interested service creates its own temporary queue and binds it to the `viewed` exchange:
+
+```js
+const { queue } = await messageChannel.assertQueue("", { exclusive: true });
+await messageChannel.bindQueue(queue, "viewed", "");
+await messageChannel.consume(queue, consumeViewedMessage);
+```
+
+Now both `history` and `recommendations` can receive the same event independently. `history` records the view in MongoDB, while `recommendations` can react to the same viewing signal without adding another HTTP call to `video-streaming`.
+
+This makes the communication more fluent as the system grows. Instead of chaining services together with direct requests, the streaming service publishes a small fact — "this video was viewed" — and RabbitMQ delivers that fact to whichever services care about it. The result is looser coupling: producers focus on producing events, consumers choose how to respond, and new consumers can be added without changing the producer's request flow.
