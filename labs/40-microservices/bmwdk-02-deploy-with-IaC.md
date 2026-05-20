@@ -12,8 +12,9 @@ kubectl config get-contexts
 kubectl config use-context <context-name>
 
 # build docker image
+# registry-url: `bmwdk.azurecr.io` in my case
 docker image build -t video-streaming:1 --file Dockerfile-prod .
-dokcer tag video-streaming:1 <registry-url>/video-streaming:1
+dokcer image tag video-streaming:1 <registry-url>/video-streaming:1
 docker login <registry-url>
-docker push <registry-url>/video-streaming:1
+docker image push <registry-url>/video-streaming:1
 ```
