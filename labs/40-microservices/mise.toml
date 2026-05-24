@@ -1,0 +1,3 @@
+[tools]
+azure-cli = "2.86.0"
+terraform = "1.14"
