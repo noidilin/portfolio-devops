@@ -5,7 +5,7 @@ on:
     # branches:
     #   - main
     paths:
-      - ".github/workflows/bmwdk-ch08-cicd.yaml"
+      - ".github/workflows/bmwdk.yaml"
       - "labs/40-microservices/video-streaming/**"
       - "labs/40-microservices/infra/k8s/**"
       - "labs/40-microservices/infra/scripts/**"
