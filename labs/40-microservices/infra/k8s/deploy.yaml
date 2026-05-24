@@ -1,9 +1,4 @@
-#
-# To deploy:
-#
 # kubectl apply -f scripts/deploy.yaml
-#
-#
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,7 +15,7 @@ spec:
     spec:
       containers:
         - name: video-streaming
-          image: bmwdk.azurecr.io/video-streaming:1
+          image: bmwdkflixtube.azurecr.io/video-streaming:1
           imagePullPolicy: IfNotPresent
           env:
             - name: PORT
