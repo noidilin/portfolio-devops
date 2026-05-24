@@ -1,4 +1,3 @@
-# kubectl apply -f scripts/deploy.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,22 +14,8 @@ spec:
     spec:
       containers:
         - name: video-streaming
-          image: bmwdkflixtube.azurecr.io/video-streaming:1
+          image: video-streaming:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: PORT
               value: "4000"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: video-streaming
-spec:
-  selector:
-    app: video-streaming
-  type: LoadBalancer
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 4000
-
