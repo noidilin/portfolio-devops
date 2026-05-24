@@ -354,3 +354,325 @@ kubectl describe pod -l app=video-streaming
 
 > [!NOTE]
 > This deployment only proves the first AKS path for the existing app: image in ACR, Pod in AKS, and HTTP traffic through a LoadBalancer Service. A fuller production deployment would still need health checks, safer image versioning, config management, secrets, observability, and the rest of the microservices.
+
+## Ch07 - Provision cloud resources with Terraform
+
+Chapter 6 proved the AKS path manually: create Azure resources, push an image to ACR, connect AKS to ACR, and apply a Kubernetes manifest. Chapter 7 moves the Azure infrastructure setup into Terraform.
+
+Because most Terraform mechanics are the same shape as AWS Terraform work — provider config, variables, resources, references, `terraform init`, `plan`, `apply`, and `destroy` — the important Azure-specific learning is not the syntax. The important learning is what becomes automated, what remains manual, and which Azure concepts are different from AWS.
+
+---
+
+### What is automated after this chapter
+
+After this chapter, Terraform owns the Azure infrastructure needed for the first AKS deployment path:
+
+```txt
+Terraform apply
+  -> creates Azure resource group
+  -> creates Azure Container Registry
+  -> creates AKS cluster
+  -> grants AKS permission to pull from ACR
+```
+
+The Terraform configuration lives in:
+
+```txt
+infra/tf
+```
+
+It describes these resources:
+
+```txt
+resource-group.tf         -> Azure resource group
+container-registry.tf     -> Azure Container Registry
+kubernetes-cluster.tf     -> AKS cluster and ACR pull permission
+providers.tf              -> AzureRM provider setup
+variables.tf              -> shared app, region, and Kubernetes version inputs
+```
+
+The practical improvement is repeatability. Instead of recreating the lab by remembering a sequence of Azure Portal or CLI actions, I can run:
+
+```sh
+cd infra/tf
+terraform init
+terraform plan
+terraform apply
+```
+
+and get the same infrastructure shape again:
+
+1. A resource group named `bmwdkFlixtube`.
+2. An ACR registry with a login server like `bmwdkflixtube.azurecr.io`.
+3. An AKS cluster named `bmwdkFlixtube`.
+4. An `AcrPull` role assignment that lets AKS pull images from that registry.
+
+Cleanup is automated too:
+
+```sh
+terraform destroy
+```
+
+That removes the Terraform-managed Azure resources together instead of requiring a manual cleanup checklist across Azure services.
+
+Terraform does **not** deploy the application in this chapter. It prepares the cloud infrastructure that the application deployment depends on. The Docker image build, image push, `kubectl` setup, and Kubernetes manifest apply are still separate steps.
+
+---
+
+### How AKS gets access to ACR
+
+The key authentication problem is:
+
+```txt
+AKS needs to pull a private image from ACR.
+```
+
+The image lives in Azure Container Registry:
+
+```txt
+bmwdkflixtube.azurecr.io/video-streaming:1
+```
+
+Kubernetes should not need a registry username and password inside the Deployment manifest. Instead, Azure gives the AKS kubelet identity permission to pull from the registry.
+
+In the manual version from Chapter 6, this was done with Azure CLI:
+
+```sh
+az aks update \
+  --resource-group <resource-group> \
+  --name <cluster> \
+  --attach-acr <registry>
+```
+
+In the Terraform version, the same relationship is represented explicitly as an Azure role assignment:
+
+```tf
+resource "azurerm_role_assignment" "role_assignment" {
+  principal_id         = azurerm_kubernetes_cluster.cluster.kubelet_identity[0].object_id
+  role_definition_name = "AcrPull"
+  scope                = azurerm_container_registry.container_registry.id
+}
+```
+
+The relationship is:
+
+```txt
+AKS kubelet identity
+  -> receives AcrPull role
+  -> scoped to the ACR registry
+  -> can pull private container images
+```
+
+That means the Kubernetes Deployment can reference the private image directly:
+
+```yaml
+image: bmwdkflixtube.azurecr.io/video-streaming:1
+```
+
+and AKS can pull it using Azure identity and RBAC rather than Kubernetes image-pull secrets.
+
+This is the Azure equivalent of wiring runtime infrastructure to an image registry with cloud IAM. The Terraform detail is less important than the idea: the cluster identity must have pull permission on the registry.
+
+---
+
+### What is different from AWS
+
+Most of the Terraform workflow feels familiar if you already use AWS:
+
+```txt
+provider config
+variables
+resources
+resource references
+terraform plan/apply/destroy
+IAM-style permission binding
+```
+
+The differences that matter in this lab are Azure-specific platform concepts.
+
+#### Resource groups
+
+Azure resources live inside a **resource group**. The resource group is not just a tag or naming convention; it is a first-class container for related resources.
+
+In this lab, the resource group contains:
+
+```txt
+Resource group: bmwdkFlixtube
+  -> Azure Container Registry
+  -> AKS cluster
+  -> related Azure-managed child resources
+```
+
+This is different from the usual AWS mental model, where resources are grouped mostly by account, region, VPC, tags, CloudFormation stack, or Terraform state. Azure makes the grouping explicit in the resource model.
+
+That affects both provisioning and cleanup. Creating the resource group gives the lab a parent container. Destroying the Terraform-managed stack removes that container and the resources Terraform placed in it.
+
+#### Resource Provider registrations
+
+Azure services are exposed through **Resource Provider namespaces**. For example:
+
+```txt
+Microsoft.ContainerService  -> AKS
+Microsoft.ContainerRegistry -> ACR
+Microsoft.Web               -> App Service
+Microsoft.DBforMySQL        -> Azure Database for MySQL
+```
+
+A subscription may need a provider namespace registered before resources from that namespace can be created. That is why Azure Terraform can fail before any actual resource creation if provider registration is blocked or slow.
+
+The failure I hit looked like this:
+
+```txt
+Error: Encountered an error whilst ensuring Resource Providers are registered.
+...
+Provider Name: "Microsoft.Web" ... context canceled
+```
+
+The surprising part was that the lab was not trying to create `Microsoft.Web` resources. The AzureRM provider was attempting broad automatic provider registration during startup.
+
+The fix was to disable broad automatic registration:
+
+```tf
+provider "azurerm" {
+  features {}
+  resource_provider_registrations = "none"
+}
+```
+
+Then, if a specific namespace is actually needed, register only that namespace:
+
+```sh
+az provider register --namespace Microsoft.ContainerService
+az provider register --namespace Microsoft.ContainerRegistry
+```
+
+This is a major Azure difference from AWS. In AWS, you usually assume a service API is available in an account and region if the service exists there and IAM allows it. In Azure, the subscription also has this Resource Provider registration layer.
+
+#### Naming behavior
+
+Azure resources have service-specific naming rules. In this lab, the shared app name is mixed case:
+
+```txt
+bmwdkFlixtube
+```
+
+but the ACR login server is lowercase:
+
+```txt
+bmwdkflixtube.azurecr.io
+```
+
+That lowercase registry host is the value Docker and Kubernetes must use when tagging, pushing, and pulling images.
+
+---
+
+### What still requires human intervention
+
+This chapter automates infrastructure creation, but it is not yet a full CI/CD system. I still manually perform the delivery steps around Terraform.
+
+#### Running Terraform
+
+A person still runs:
+
+```sh
+terraform init
+terraform plan
+terraform apply
+```
+
+There is no pipeline yet to run plans automatically, capture review approval, apply changes, or store state in a remote backend.
+
+#### Building and pushing the image
+
+After ACR exists, I still build and push the image manually:
+
+```sh
+docker login bmwdkflixtube.azurecr.io
+
+docker buildx build \
+  --platform linux/amd64 \
+  -t bmwdkflixtube.azurecr.io/video-streaming:1 \
+  --file Dockerfile-prod \
+  --push .
+```
+
+The `--platform linux/amd64` flag still matters when building on Apple Silicon, because the AKS node expects an amd64-compatible image.
+
+#### Connecting local kubectl to AKS
+
+Terraform creates the cluster, but my local machine still needs Kubernetes credentials:
+
+```sh
+az aks get-credentials \
+  --resource-group bmwdkFlixtube \
+  --name bmwdkFlixtube
+
+kubectl config use-context bmwdkFlixtube
+```
+
+#### Applying the Kubernetes manifest
+
+The Kubernetes Deployment and Service are still applied manually:
+
+```sh
+cd infra/k8s
+kubectl apply -f deploy.yaml
+```
+
+The manifest points at the Terraform-managed registry:
+
+```yaml
+image: bmwdkflixtube.azurecr.io/video-streaming:1
+```
+
+#### Checking the rollout
+
+A person still checks whether the app is healthy and reachable:
+
+```sh
+kubectl get deployments
+kubectl get pods
+kubectl get services
+```
+
+Once the `LoadBalancer` Service receives an external IP, the app should be reachable at:
+
+```txt
+http://<external-ip>/video
+```
+
+#### Deciding when to clean up
+
+A person still decides when to remove runtime and cloud resources:
+
+```sh
+cd infra/k8s
+kubectl delete -f deploy.yaml
+
+cd ../tf
+terraform destroy
+```
+
+---
+
+### End state of the chapter
+
+After this chapter, the lab has automated the Azure infrastructure layer:
+
+```txt
+Terraform-managed:
+  - resource group
+  - container registry
+  - AKS cluster
+  - AKS-to-ACR pull permission
+
+Still manual:
+  - Terraform execution workflow
+  - Docker image build and push
+  - kubectl credential setup
+  - Kubernetes manifest apply
+  - rollout verification
+  - cleanup decision
+```
+
+The most important progress is repeatability. The lab is not production-ready yet, but ACR, AKS, and the pull permission are now described as code. The next improvement would be CI/CD: build the image on code changes, tag it safely, push it to ACR, run Terraform with review gates, deploy the Kubernetes manifest, and report rollout status automatically.
