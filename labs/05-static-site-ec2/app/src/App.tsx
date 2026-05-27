@@ -1,61 +1,14 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { calculateCidr } from './cidr'
 import './App.css'
 
-interface CidrResult {
-  networkAddress: string
-  broadcastAddress: string
-  subnetMask: string
-  firstHost: string
-  lastHost: string
-  totalHosts: number
-  usableHosts: number
-  cidrNotation: string
-}
+const EMPTY_VALUE = '—'
+const EMPTY_PARTS: CidrParts = ['', '', '', '', '']
 
-const PLACEHOLDER: CidrResult = {
-  networkAddress: '—',
-  broadcastAddress: '—',
-  subnetMask: '—',
-  firstHost: '—',
-  lastHost: '—',
-  totalHosts: 0,
-  usableHosts: 0,
-  cidrNotation: '—',
-}
+type CidrParts = [string, string, string, string, string]
 
-function isValidCidr(input: string): boolean {
-  const match = input.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/)
-  if (!match) return false
-  const [, a, b, c, d, prefix] = match.map(Number)
-  if (a > 255 || b > 255 || c > 255 || d > 255) return false
-  if (prefix < 0 || prefix > 32) return false
-  return true
-}
-
-function parseCidr(input: string): CidrResult {
-  const match = input.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/)!
-  const [, a, b, c, d, prefix] = match.map(Number)
-
-  const ip = (a << 24) | (b << 16) | (c << 8) | d
-  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
-  const network = (ip & mask) >>> 0
-  const broadcast = (network | ~mask) >>> 0
-  const totalHosts = Math.pow(2, 32 - prefix)
-  const usableHosts = prefix >= 31 ? totalHosts : totalHosts - 2
-
-  const toIp = (n: number) =>
-    [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff].join('.')
-
-  return {
-    networkAddress: toIp(network),
-    broadcastAddress: toIp(broadcast),
-    subnetMask: toIp(mask),
-    firstHost: prefix >= 31 ? toIp(network) : toIp(network + 1),
-    lastHost: prefix >= 31 ? toIp(broadcast) : toIp(broadcast - 1),
-    totalHosts,
-    usableHosts,
-    cidrNotation: input,
-  }
+function formatCount(value: number | null): string {
+  return value === null ? EMPTY_VALUE : value.toLocaleString()
 }
 
 /* ── Blog-style shadcn Card components ── */
@@ -93,36 +46,96 @@ function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
 /* ── App ── */
 
 function App() {
-  const [input, setInput] = useState('')
-  const [result, setResult] = useState<CidrResult | null>(null)
-  const [error, setError] = useState('')
+  const [parts, setParts] = useState<CidrParts>(EMPTY_PARTS)
+
   const [dark, setDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
   )
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([])
 
   const toggleDark = () => setDark((d) => !d)
 
-  const handleCalculate = () => {
-    const trimmed = input.trim()
-    if (!trimmed) {
-      setResult(null)
-      setError('')
-      return
+  const { result, errors } = useMemo(() => {
+    const hasAnyInput = parts.some((part) => part !== '')
+    const hasCompleteCidr = parts.every((part) => part !== '')
+
+    if (!hasAnyInput || !hasCompleteCidr) {
+      return { result: null, errors: [] }
     }
-    if (!isValidCidr(trimmed)) {
-      setError('Enter a valid CIDR, e.g. 192.168.1.0/24')
-      setResult(null)
-      return
+
+    const calculation = calculateCidr(
+      `${parts[0]}.${parts[1]}.${parts[2]}.${parts[3]}/${parts[4]}`,
+    )
+
+    if (!calculation.ok) {
+      return { result: null, errors: calculation.errors }
     }
-    setError('')
-    setResult(parseCidr(trimmed))
+
+    return { result: calculation.value, errors: [] }
+  }, [parts])
+
+  const handlePartChange = (index: number, rawValue: string) => {
+    const maxLength = index === 4 ? 2 : 3
+    const value = rawValue.replace(/\D/g, '').slice(0, maxLength)
+
+    setParts((current) => {
+      const next = [...current] as CidrParts
+      next[index] = value
+      return next
+    })
+
+    if (value.length === maxLength && index < 4) {
+      inputRefs.current[index + 1]?.focus()
+    }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleCalculate()
+  const handlePartKeyDown = (
+    index: number,
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === 'Backspace' && parts[index] === '' && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
   }
 
-  const display = result ?? PLACEHOLDER
+  const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = event.clipboardData.getData('text').trim()
+    const match = pasted.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/)
+    if (!match) return
+
+    event.preventDefault()
+    setParts([
+      match[1].slice(0, 3),
+      match[2].slice(0, 3),
+      match[3].slice(0, 3),
+      match[4].slice(0, 3),
+      match[5].slice(0, 2),
+    ])
+    inputRefs.current[4]?.focus()
+  }
+
+  const clearInput = () => {
+    setParts(EMPTY_PARTS)
+    inputRefs.current[0]?.focus()
+  }
+
+  const display = {
+    networkAddress: result?.networkAddress ?? EMPTY_VALUE,
+    broadcastAddress: result?.broadcastAddress ?? EMPTY_VALUE,
+    subnetMask: result?.subnetMask ?? EMPTY_VALUE,
+    wildcardMask: result?.wildcardMask ?? EMPTY_VALUE,
+    firstUsableHost: result?.firstUsableHost ?? EMPTY_VALUE,
+    lastUsableHost: result?.lastUsableHost ?? EMPTY_VALUE,
+    cidrNotation: result?.input ?? EMPTY_VALUE,
+    prefixLength: result?.prefixLength.toString() ?? EMPTY_VALUE,
+    totalAddresses: formatCount(result?.totalAddresses ?? null),
+    usableHosts: formatCount(result?.usableHosts ?? null),
+    binaryIpAddress: result?.binary.ipAddress ?? EMPTY_VALUE,
+    binaryNetworkAddress: result?.binary.networkAddress ?? EMPTY_VALUE,
+    binaryBroadcastAddress: result?.binary.broadcastAddress ?? EMPTY_VALUE,
+    binarySubnetMask: result?.binary.subnetMask ?? EMPTY_VALUE,
+    binaryWildcardMask: result?.binary.wildcardMask ?? EMPTY_VALUE,
+  }
 
   return (
     <div className={dark ? 'dark' : ''}>
@@ -134,34 +147,81 @@ function App() {
               CIDR Calculator
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Enter a CIDR block to calculate network details
+              Enter all five blocks and results update automatically
             </p>
           </div>
 
           {/* Input row */}
-          <div className="mb-8 flex gap-3">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="192.168.1.0/24"
-              data-slot="input"
-              className="h-9 flex-1 min-w-0 rounded-md border border-input bg-transparent px-3 py-1 font-mono text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
-            />
+          <div className="mb-3 rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              {parts.slice(0, 4).map((part, index) => (
+                <div key={index} className="flex items-center gap-2 sm:gap-3">
+                  <label className="sr-only" htmlFor={`octet-${index + 1}`}>
+                    IPv4 octet {index + 1}
+                  </label>
+                  <input
+                    id={`octet-${index + 1}`}
+                    ref={(node) => {
+                      inputRefs.current[index] = node
+                    }}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={part}
+                    onChange={(event) => handlePartChange(index, event.target.value)}
+                    onKeyDown={(event) => handlePartKeyDown(index, event)}
+                    onPaste={handlePaste}
+                    placeholder={index === 0 ? '192' : index === 1 ? '168' : index === 2 ? '1' : '0'}
+                    data-slot="input"
+                    className="h-14 w-20 rounded-lg border border-input bg-background px-2 text-center font-mono text-2xl font-semibold text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30 sm:w-24"
+                  />
+                  <span className="font-mono text-3xl font-semibold text-muted-foreground">
+                    {index < 3 ? '.' : '/'}
+                  </span>
+                </div>
+              ))}
+
+              <label className="sr-only" htmlFor="prefix-length">
+                Prefix length
+              </label>
+              <input
+                id="prefix-length"
+                ref={(node) => {
+                  inputRefs.current[4] = node
+                }}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={parts[4]}
+                onChange={(event) => handlePartChange(4, event.target.value)}
+                onKeyDown={(event) => handlePartKeyDown(4, event)}
+                onPaste={handlePaste}
+                placeholder="24"
+                data-slot="input"
+                className="h-14 w-20 rounded-lg border border-input bg-background px-2 text-center font-mono text-2xl font-semibold text-foreground shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+              />
+            </div>
+          </div>
+
+          <div className="mb-8 flex items-center justify-between text-xs text-muted-foreground">
+            <p>Format: octet.octet.octet.octet/prefix</p>
             <button
               type="button"
-              onClick={handleCalculate}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
+              onClick={clearInput}
+              className="font-mono transition-colors hover:text-accent-foreground dark:hover:text-accent"
             >
-              Calculate
+              [clear]
             </button>
           </div>
 
           {/* Error */}
-          {error && (
+          {errors.length > 0 && (
             <div className="mb-6 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
+              <ul className="list-disc pl-5">
+                {errors.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -209,12 +269,12 @@ function App() {
             <Card>
               <CardHeader>
                 <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  First Host
+                  Wildcard Mask
                 </span>
               </CardHeader>
               <CardContent>
                 <p className="font-mono text-base font-semibold text-card-foreground">
-                  {display.firstHost}
+                  {display.wildcardMask}
                 </p>
               </CardContent>
             </Card>
@@ -222,12 +282,25 @@ function App() {
             <Card>
               <CardHeader>
                 <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Last Host
+                  First Usable Host
                 </span>
               </CardHeader>
               <CardContent>
                 <p className="font-mono text-base font-semibold text-card-foreground">
-                  {display.lastHost}
+                  {display.firstUsableHost}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  Last Usable Host
+                </span>
+              </CardHeader>
+              <CardContent>
+                <p className="font-mono text-base font-semibold text-card-foreground">
+                  {display.lastUsableHost}
                 </p>
               </CardContent>
             </Card>
@@ -248,12 +321,25 @@ function App() {
             <Card>
               <CardHeader>
                 <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  Prefix Length
+                </span>
+              </CardHeader>
+              <CardContent>
+                <p className="font-mono text-base font-semibold text-card-foreground">
+                  {display.prefixLength}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                   Total Addresses
                 </span>
               </CardHeader>
               <CardContent>
                 <p className="font-mono text-base font-semibold text-card-foreground">
-                  {display.totalHosts.toLocaleString()}
+                  {display.totalAddresses}
                 </p>
               </CardContent>
             </Card>
@@ -266,15 +352,93 @@ function App() {
               </CardHeader>
               <CardContent>
                 <p className="font-mono text-base font-semibold text-card-foreground">
-                  {display.usableHosts.toLocaleString()}
+                  {display.usableHosts}
                 </p>
               </CardContent>
             </Card>
           </div>
 
+          {result?.hostRangeNote && (
+            <div className="mt-4 rounded-md border border-accent/70 bg-accent/30 px-4 py-3 text-sm text-accent-foreground">
+              {result.hostRangeNote}
+            </div>
+          )}
+
+          <div className="mt-6">
+            <h2 className="mb-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              Binary Representations
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
+              <Card>
+                <CardHeader>
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                    Input IP
+                  </span>
+                </CardHeader>
+                <CardContent>
+                  <p className="break-all font-mono text-sm font-semibold text-card-foreground">
+                    {display.binaryIpAddress}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                    Network Address
+                  </span>
+                </CardHeader>
+                <CardContent>
+                  <p className="break-all font-mono text-sm font-semibold text-card-foreground">
+                    {display.binaryNetworkAddress}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                    Broadcast Address
+                  </span>
+                </CardHeader>
+                <CardContent>
+                  <p className="break-all font-mono text-sm font-semibold text-card-foreground">
+                    {display.binaryBroadcastAddress}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                    Subnet Mask
+                  </span>
+                </CardHeader>
+                <CardContent>
+                  <p className="break-all font-mono text-sm font-semibold text-card-foreground">
+                    {display.binarySubnetMask}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                    Wildcard Mask
+                  </span>
+                </CardHeader>
+                <CardContent>
+                  <p className="break-all font-mono text-sm font-semibold text-card-foreground">
+                    {display.binaryWildcardMask}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
           {/* Footer */}
           <div className="mt-10 flex items-center justify-between text-xs text-muted-foreground">
-            <p>Placeholder UI — subnet math will be expanded in future iterations</p>
+            <p>Fully client-side IPv4 CIDR calculator</p>
             <button
               type="button"
               onClick={toggleDark}
