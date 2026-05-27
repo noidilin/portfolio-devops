@@ -1,0 +1,13 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker
+systemctl enable --now docker
+systemctl enable --now amazon-ssm-agent || true
+
+cat >/etc/cidr-calculator-runtime.env <<'EOF'
+AWS_REGION=${aws_region}
+ECR_REPOSITORY_URL=${ecr_repository_url}
+SERVICE_NAME=${service_name}
+EOF
