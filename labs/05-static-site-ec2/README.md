@@ -2,6 +2,76 @@
 
 Terraform tracer bullet for a single EC2-hosted Docker service runtime path.
 
+The lab builds a client-side IPv4 CIDR calculator SPA, packages it as a static Nginx site in Docker, pushes the image to Amazon ECR, and uses Terraform to provision a single EC2 instance that pulls and runs the image at boot.
+
+## Local SPA development
+
+The application lives under `app/`. It is a React TypeScript SPA built with Vite, Tailwind CSS, and shadcn-style components.
+
+Prerequisites: Node 24 and pnpm (managed by `mise` via `mise.toml` in the lab root).
+
+```sh
+cd app
+pnpm install
+pnpm dev           # starts Vite dev server with hot reload
+```
+
+The dev server runs on `http://localhost:5173` by default. Enter an IPv4 CIDR like `192.168.1.0/24` to see derived subnet properties (network address, broadcast, mask, host range, host count, binary representation).
+
+### Production build
+
+```sh
+cd app
+pnpm build         # outputs static assets to app/dist/
+pnpm preview       # serves the production build locally for review
+```
+
+The build produces static HTML, JS, and CSS — no Node server needed at runtime.
+
+### Unit tests
+
+```sh
+cd app
+pnpm test          # runs vitest against the CIDR calculation module
+```
+
+## Docker build and local smoke test
+
+Build the Docker image from the lab root (the Dockerfile context is the lab root):
+
+```sh
+cd /path/to/labs/05-static-site-ec2
+docker build -t cidr-calculator:v1 .
+```
+
+Run the container locally and verify it serves the SPA:
+
+```sh
+docker run --rm -p 8090:80 cidr-calculator:v1
+```
+
+Smoke test:
+
+```sh
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8090
+# expected: 200
+```
+
+Open `http://localhost:8090` in a browser to confirm the CIDR calculator loads.
+
+The Docker image uses a multi-stage build: Node builds the SPA, then Nginx serves the static output on port 80. Nginx config is at `nginx/default.conf` — it handles SPA routing via `try_files` and sets cache headers on static assets.
+
+### Package scripts shortcut
+
+The app `package.json` also provides:
+
+```sh
+cd app
+pnpm docker:build   # docker build -t cidr-calc ..
+pnpm docker:run     # docker run --rm -p 8090:80 cidr-calc
+pnpm docker:stop    # stops the cidr-calc container
+```
+
 ## Infrastructure
 
 - Reusable module: `infra/modules/ec2-docker-runtime`
@@ -15,7 +85,7 @@ The stage root provisions:
 - a security group with public HTTP ingress on port 80, no SSH ingress, and outbound access
 - outputs for image push commands, HTTP access, and SSM inspection
 
-## Backend and variables pattern
+### Backend and variables pattern
 
 This lab uses the `backend.hcl` pattern for backend settings and `.auto.tfvars` for normal Terraform input variables.
 
@@ -36,7 +106,7 @@ terraform init -backend=false
 terraform validate
 ```
 
-## Test commands
+### Preview and apply
 
 Preview changes:
 
@@ -65,20 +135,70 @@ Build and push the image separately; Terraform only consumes the explicit tag.
 The configured `image_tag` is rendered into EC2 user-data, so changing it replaces
 the instance and reruns bootstrap deterministically.
 
+### Step 1: get the ECR repository URL from Terraform
+
 ```sh
 cd infra/stage
-terraform output docker_login_command
+ECR_REPOSITORY_URL=$(terraform output -raw ecr_repository_url)
+ECR_REGISTRY=$(echo "$ECR_REPOSITORY_URL" | cut -d/ -f1)
+```
+
+### Step 2: authenticate Docker to ECR
+
+```sh
+aws ecr get-login-password --region ap-northeast-1 \
+  | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+```
+
+This uses your local AWS credentials (SSO profile, IAM Identity Center, or whatever is in your credential chain) to obtain a short-lived ECR registry password. Docker stores it for the registry host.
+
+### Step 3: build, tag, and push
+
+From the lab root:
+
+```sh
+cd /path/to/labs/05-static-site-ec2
+docker build -t cidr-calculator:v1 .
+docker tag cidr-calculator:v1 "$ECR_REPOSITORY_URL:v1"
+docker push "$ECR_REPOSITORY_URL:v1"
+```
+
+You can also get ready-to-run commands from Terraform:
+
+```sh
+cd infra/stage
 terraform output docker_build_tag_push_commands
 ```
 
-After running those commands from the lab root, set `image_tag` in
-`infra/stage/stage.auto.tfvars` to the pushed tag and apply:
+### Step 4: apply Terraform with the explicit image tag
+
+Set `image_tag` in `infra/stage/stage.auto.tfvars`:
+
+```hcl
+image_tag = "v1"
+```
+
+Then apply:
 
 ```sh
+cd infra/stage
 terraform apply
 ```
 
-### CI-built image tag limitation
+Terraform renders the image tag into the EC2 user-data template. The instance boots, installs Docker, authenticates to ECR through its instance role, pulls the exact tagged image, and runs it on port 80.
+
+### Step 5: verify the deployed service
+
+```sh
+cd infra/stage
+SERVICE_URL=$(terraform output -raw service_url)
+curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL"
+# expected: 200
+```
+
+Open the service URL in a browser to confirm the CIDR calculator is live.
+
+### CI-built image tag handoff
 
 If a CI/CD system such as GitHub Actions builds and pushes the image, Terraform
 will not automatically know the Git commit SHA used as the image tag unless that
@@ -112,16 +232,96 @@ not see the image contents change when the tag name stays the same, so the EC2
 instance will not be replaced unless you also change `image_tag` or force a
 replacement.
 
-Troubleshoot bootstrap through SSM and cloud-init/systemd logs:
+## SSM Session Manager access (no SSH)
+
+The EC2 instance is accessible through **AWS Systems Manager Session Manager** only. There is no SSH key pair, no port 22 ingress, and no SSH daemon exposed to the internet. This is intentional — Session Manager provides secure shell access through the AWS control plane without managing keys or opening inbound network paths.
+
+Connect to the instance:
 
 ```sh
+cd infra/stage
 terraform output ssm_start_session_command
+# run the printed command
+```
+
+This opens an interactive shell on the EC2 instance through the SSM agent.
+
+### Troubleshooting bootstrap
+
+On the instance, check cloud-init and the service logs:
+
+```sh
 sudo tail -n 200 /var/log/cidr-calculator-user-data.log
 sudo journalctl -u cidr-calculator.service --no-pager
 ```
 
+The user-data script logs to both `/var/log/cidr-calculator-user-data.log` and journald. The `cidr-calculator` systemd unit depends on Docker and runs the container pull-and-run script at boot.
+
+Common failure points:
+
+- Docker install or service start failed → check `journalctl -u docker.service`
+- ECR authentication failed → check the instance role has the ECR pull policy attached
+- Image pull failed → verify the tag exists in ECR: `aws ecr describe-images --repository-name <name> --region ap-northeast-1`
+- Container not listening on port 80 → `docker logs cidr-calculator`
+
+## How EC2 gets source-derived artifacts
+
+This lab uses **ECR container images** as the artifact delivery mechanism, but that is not the only option. Understanding the alternatives helps explain why this choice fits the lab.
+
+### Options for getting built artifacts onto EC2
+
+| Method | How it works | Trade-offs |
+|--------|-------------|------------|
+| **ECR container images** | Build a Docker image locally or in CI, push to ECR. EC2 pulls and runs the image at boot via user-data. | Clean separation of build and infra. Immutable artifacts with explicit tags. Requires Docker on EC2. Requires ECR repository and IAM pull permissions. Chosen for this lab. |
+| **AMI baking (Packer)** | Build a custom AMI with the application baked in. Terraform launches EC2 from that AMI. | Fast boot (no install step). Strong immutability. But AMI management adds complexity: regional copying, cleanup, AMI ID tracking across Terraform configs. |
+| **S3 artifact sync** | CI uploads a build archive (tar, zip) to S3. EC2 user-data downloads and extracts it at boot. | Works for any artifact type. Simple. But requires the instance to know the S3 path and version, and you manage the extraction/startup logic yourself. |
+| **Git pull in cloud-init** | EC2 clones the repo and runs a build step during boot. | Simple for prototypes. But couples the instance to repo access, requires build tools on the instance, and boot time depends on git clone + build. Not deterministic if the branch moves. |
+| **AWS CodeDeploy** | Deploy agent on EC2 pulls revision bundles from S3 or GitHub. Supports blue/green and rolling deploys. | Production-grade deployment automation. But heavy for a single-instance lab. Requires CodeDeploy agent, appspec, and deployment group configuration. |
+| **SSM State Manager / Run Command** | AWS SSM pushes commands or state configurations to managed instances. | Good for config management and ad-hoc commands. Can trigger container restarts or updates. But not a primary artifact delivery mechanism for this use case. |
+| **Terraform provisioners (local-exec, remote-exec)** | Terraform runs shell commands as part of apply. Can build images, copy files, or run remote commands. | Couples build steps to Terraform apply. Breaks determinism and plan preview. Makes Terraform depend on local tooling. Explicitly avoided in this lab. |
+
+### Why ECR container images for this lab
+
+1. **Separation of concerns** — Terraform owns infrastructure. Docker owns the artifact. Neither leaks into the other.
+2. **Immutable deployments** — Each image tag points to a specific built artifact. Changing the tag triggers EC2 replacement through `user_data_replace_on_change` and `replace_triggered_by`.
+3. **No build tools on the instance** — The EC2 instance only needs Docker. No Node, no pnpm, no git on the runtime host.
+4. **Auth follows IAM** — The EC2 instance role grants ECR pull access. No embedded credentials or secrets.
+5. **Scalable path** — The same ECR-based workflow extends to ECS, EKS, or future CI/CD pipelines without rethinking the artifact layer.
+
+## Known trade-offs
+
+This lab is a tracer bullet, not a production deployment. The following limitations are intentional for this iteration.
+
+### Default VPC
+
+The lab uses the AWS account's default VPC and subnets. This avoids networking complexity but means the instance lands in a public subnet with no controlled egress through a NAT gateway or private subnet topology. A production deployment would use a dedicated VPC with private subnets, NAT, and VPC endpoints for ECR and SSM.
+
+### Single instance downtime
+
+Changing `image_tag` triggers EC2 replacement. The old instance terminates and a new one boots. During that window the service is unavailable. This is acceptable for a learning lab. A production setup would use an ALB with a target group and blue/green rotation, an Auto Scaling Group, or a container orchestrator like ECS.
+
+### No HTTPS
+
+The service is served over plain HTTP on port 80. There is no TLS termination, no ACM certificate, no Route 53 domain, and no CloudFront distribution. In a real deployment you would front the instance or ALB with HTTPS. For this lab the HTTP-only path keeps the focus on Docker, ECR, and Terraform.
+
+### No ALB or Auto Scaling Group
+
+A single EC2 instance is the simplest runnable shape. There is no load balancer health checking the container, no auto-scaling to handle traffic changes, and no multi-AZ redundancy. These are natural next steps for a more production-shaped iteration.
+
+## Teardown
+
 Destroy lab resources:
 
 ```sh
+cd infra/stage
 terraform destroy
 ```
+
+Set `ecr_force_delete = true` in `stage.auto.tfvars` if the ECR repository still contains images and you want Terraform to remove it on destroy.
+
+## Further reading
+
+The lab includes reflective blog posts that go deeper into specific topics:
+
+- `blog-auth-ecr-docker-ec2-terraform.md` — how the authentication chain works across SSO, STS, ECR, Docker, and EC2 instance roles
+- `blog-remote-backend-management.md` — why `backend.hcl` and `.auto.tfvars` belong to different Terraform lifecycle phases
