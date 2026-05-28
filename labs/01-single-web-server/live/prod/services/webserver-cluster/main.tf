@@ -12,7 +12,7 @@ module "webserver_cluster" {
 # This feature is production only feature
 # load exported values from module
 resource "aws_autoscaling_schedule" "scale_out_during_business_hours" {
-  scheduled_action_name  = "scale-out-during-business-hours"
+  scheduled_action_name  = "devops-sws-prod-scale-out-business-hours"
   min_size               = 2
   max_size               = 10
   desired_capacity       = 10
@@ -21,7 +21,7 @@ resource "aws_autoscaling_schedule" "scale_out_during_business_hours" {
 }
 
 resource "aws_autoscaling_schedule" "scale_in_at_night" {
-  scheduled_action_name  = "scale-in-at-night"
+  scheduled_action_name  = "devops-sws-prod-scale-in-night"
   min_size               = 2
   max_size               = 10
   desired_capacity       = 2

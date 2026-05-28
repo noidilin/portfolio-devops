@@ -1,4 +1,5 @@
 locals {
+  name_prefix  = "devops-sws-${var.cluster_name}"
   http_port    = 80
   any_port     = 0
   any_protocol = "-1"

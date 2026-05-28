@@ -15,8 +15,9 @@ resource "terraform_data" "image_tag" {
 }
 
 resource "aws_iam_role" "instance" {
-  name               = "${var.name_prefix}-${var.service_name}-ec2"
-  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+  name                 = "${var.name_prefix}-${var.service_name}-ec2"
+  permissions_boundary = local.lab_permissions_boundary_arn
+  assume_role_policy   = data.aws_iam_policy_document.ec2_assume_role.json
 
   tags = local.common_tags
 }

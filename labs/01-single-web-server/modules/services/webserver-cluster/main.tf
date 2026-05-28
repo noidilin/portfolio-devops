@@ -1,5 +1,5 @@
 resource "aws_launch_template" "web_launch_template" {
-  name_prefix            = "single-web-server-"
+  name_prefix            = "${local.name_prefix}-"
   image_id               = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.web_instance_sg.id]
@@ -55,14 +55,14 @@ resource "aws_autoscaling_group" "web_asg" {
 
   tag {
     key                 = "Name"
-    value               = "single-web-server-asg-instance"
+    value               = "${local.name_prefix}-asg-instance"
     propagate_at_launch = true
   }
 }
 
 # The ALB itself in different subnet under default VPC
 resource "aws_lb" "web_alb" {
-  name               = "single-web-server-${var.cluster_name}-alb"
+  name               = "${local.name_prefix}-alb"
   load_balancer_type = "application"
   subnets            = data.aws_subnets.default.ids
   security_groups    = [aws_security_group.web_alb_sg.id]
@@ -85,7 +85,7 @@ resource "aws_lb_listener" "web_http" {
 }
 
 resource "aws_lb_target_group" "web_target_group" {
-  name     = "single-web-server-${var.cluster_name}-tg"
+  name     = "${local.name_prefix}-tg"
   port     = var.server_port
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
@@ -124,7 +124,7 @@ resource "aws_lb_listener_rule" "web_http_rule" {
 # - default VPC are public subnet and will be a security risk
 # - use 'reverse proxies' and 'load balancers' as the gate
 resource "aws_security_group" "web_instance_sg" {
-  name = "single-web-server-${var.cluster_name}-instance-sg"
+  name = "${local.name_prefix}-instance-sg"
 }
 
 resource "aws_vpc_security_group_ingress_rule" "web_instance_allow_server_port" {
@@ -137,7 +137,7 @@ resource "aws_vpc_security_group_ingress_rule" "web_instance_allow_server_port" 
 }
 
 resource "aws_security_group" "web_alb_sg" {
-  name = "single-web-server-${var.cluster_name}-alb-sg"
+  name = "${local.name_prefix}-alb-sg"
 }
 
 # allow inbound HTTP requests

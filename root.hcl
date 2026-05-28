@@ -10,17 +10,17 @@ remote_state {
   config = {
     bucket = "noidilin-tf-state"
 
-    key            = "${path_relative_to_include()}/terraform.tfstate"
-    region         = "ap-northeast-1"
-    encrypt        = true
-    dynamodb_table = "noidilin-tf-state-locks"
+    key          = "${path_relative_to_include()}/terraform.tfstate"
+    region       = "ap-northeast-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 # Configure the AWS provider
 generate "provider" {
-  path = "provider.tf"
+  path      = "provider.tf"
   if_exists = "overwrite_terragrunt"
-  contents = <<EOF
+  contents  = <<EOF
 provider "aws" {
   region = "ap-northeast-1"
 }

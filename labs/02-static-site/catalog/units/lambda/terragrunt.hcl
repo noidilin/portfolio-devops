@@ -2,6 +2,23 @@ include "root" {
   path = find_in_parent_folders("root.hcl")
 }
 
+remote_state {
+  backend = "s3"
+
+  generate = {
+    path      = "backend.tf"
+    if_exists = "overwrite"
+  }
+
+  config = {
+    bucket       = "noidilin-tf-state"
+    key          = "labs/02-static-site/live/${values.environment}/${basename(get_terragrunt_dir())}/terraform.tfstate"
+    region       = values.aws_region
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+
 terraform {
   source = "${find_in_parent_folders("catalog/modules")}//lambda"
 }
@@ -13,7 +30,7 @@ dependency "s3" {
     name = "mock-bucket-name"
   }
 
-  mock_outputs_allowed_terraform_commands = ["plan", "state"]
+  mock_outputs_allowed_terraform_commands = ["plan", "state", "import"]
   mock_outputs_merge_strategy_with_state  = "shallow"
 }
 
@@ -24,7 +41,7 @@ dependency "ddb" {
     name = "mock-table-name"
   }
 
-  mock_outputs_allowed_terraform_commands = ["plan", "state"]
+  mock_outputs_allowed_terraform_commands = ["plan", "state", "import"]
   mock_outputs_merge_strategy_with_state  = "shallow"
 }
 
@@ -35,16 +52,16 @@ dependency "iam" {
     arn = "arn:aws:iam::123456789012:role/mock-role-name"
   }
 
-  mock_outputs_allowed_terraform_commands = ["plan", "state"]
+  mock_outputs_allowed_terraform_commands = ["plan", "state", "import"]
   mock_outputs_merge_strategy_with_state  = "shallow"
 }
 
 inputs = {
-  name = values.name
+  name       = values.name
   aws_region = values.aws_region
 
   s3_bucket_name      = dependency.s3.outputs.name
   dynamodb_table_name = dependency.ddb.outputs.name
   lambda_role_arn     = dependency.iam.outputs.arn
-  lambda_zip_file = "${get_repo_root()}/labs/02-static-site/dist/best-cat.zip"
+  lambda_zip_file     = "${get_repo_root()}/labs/02-static-site/dist/best-cat.zip"
 }

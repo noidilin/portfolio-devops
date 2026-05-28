@@ -6,7 +6,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "6.6.1"
 
-  name = "example-vpc"
+  name = "devops-basic-terraform-vpc"
   cidr = "10.0.0.0/16"
 
   azs             = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]

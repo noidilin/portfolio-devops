@@ -4,7 +4,8 @@
 # 3. Lambda: log to CloudWatch
 
 resource "aws_iam_role" "lambda_role" {
-  name = "${var.name}-lambda-role"
+  name                 = "${local.iam_name_prefix}-lambda-role"
+  permissions_boundary = local.lab_permissions_boundary_arn
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -21,7 +22,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 resource "aws_iam_policy" "lambda_s3_read" {
-  name        = "${var.name}-lambda-s3-read"
+  name        = "${local.iam_name_prefix}-lambda-s3-read"
   description = "Policy for Lambda to read from S3 bucket"
 
   policy = jsonencode({
@@ -43,7 +44,7 @@ resource "aws_iam_policy" "lambda_s3_read" {
 }
 
 resource "aws_iam_policy" "lambda_dynamodb" {
-  name        = "${var.name}-lambda-dynamodb"
+  name        = "${local.iam_name_prefix}-lambda-dynamodb"
   description = "Policy for Lambda to read/write to DynamoDB table"
 
   policy = jsonencode({
@@ -66,7 +67,7 @@ resource "aws_iam_policy" "lambda_dynamodb" {
 }
 
 resource "aws_iam_policy" "lambda_basic_execution" {
-  name        = "${var.name}-lambda-basic-execution"
+  name        = "${local.iam_name_prefix}-lambda-basic-execution"
   description = "Policy for Lambda basic execution (CloudWatch logs)"
 
   policy = jsonencode({

@@ -1,5 +1,5 @@
 resource "aws_db_instance" "mysql" {
-  identifier_prefix   = "single-web-server"
+  identifier_prefix   = "devops-sws-"
   engine              = "mysql"
   allocated_storage   = 10
   instance_class      = "db.t3.micro"

@@ -1,5 +1,5 @@
 locals {
-  name_prefix = "${var.environment}-${var.project_name}"
+  name_prefix = "devops-${var.project_name}-${var.environment}"
 
   default_tags = {
     Project     = var.project_name
