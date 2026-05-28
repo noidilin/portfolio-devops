@@ -10,6 +10,10 @@ resource "aws_ecr_repository" "service" {
   tags = local.common_tags
 }
 
+resource "terraform_data" "image_tag" {
+  input = var.image_tag
+}
+
 resource "aws_iam_role" "instance" {
   name               = "${var.name_prefix}-${var.service_name}-ec2"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
@@ -84,6 +88,8 @@ resource "aws_instance" "service" {
   user_data = coalesce(var.user_data, templatefile("${path.module}/user-data.sh.tftpl", {
     aws_region         = data.aws_region.current.region
     ecr_repository_url = aws_ecr_repository.service.repository_url
+    image_tag          = var.image_tag
+    container_image    = local.container_image
     service_name       = var.service_name
   }))
   user_data_replace_on_change = true
@@ -97,6 +103,10 @@ resource "aws_instance" "service" {
   metadata_options {
     http_endpoint = "enabled"
     http_tokens   = "required"
+  }
+
+  lifecycle {
+    replace_triggered_by = [terraform_data.image_tag]
   }
 
   tags = merge(local.common_tags, {

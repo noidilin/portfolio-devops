@@ -13,12 +13,17 @@ output "docker_login_command" {
   value       = "aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${split("/", module.runtime.ecr_repository_url)[0]}"
 }
 
+output "container_image" {
+  description = "Fully-qualified ECR image reference that EC2 user-data pulls and runs."
+  value       = "${module.runtime.ecr_repository_url}:${var.image_tag}"
+}
+
 output "docker_build_tag_push_commands" {
-  description = "Example commands to build, tag, and push the CIDR calculator image from the lab root."
+  description = "Example commands to build, tag, and push the configured CIDR calculator image from the lab root."
   value = [
-    "docker build -t ${var.service_name}:latest .",
-    "docker tag ${var.service_name}:latest ${module.runtime.ecr_repository_url}:latest",
-    "docker push ${module.runtime.ecr_repository_url}:latest"
+    "docker build -t ${var.service_name}:${var.image_tag} .",
+    "docker tag ${var.service_name}:${var.image_tag} ${module.runtime.ecr_repository_url}:${var.image_tag}",
+    "docker push ${module.runtime.ecr_repository_url}:${var.image_tag}"
   ]
 }
 

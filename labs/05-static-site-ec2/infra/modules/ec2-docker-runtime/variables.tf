@@ -15,6 +15,17 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
+variable "image_tag" {
+  description = "Explicit ECR image tag for the EC2 runtime to pull and run. Change this to replace the instance and rerun user-data."
+  type        = string
+  default     = "latest"
+
+  validation {
+    condition     = can(regex("^[\\w][\\w.-]{0,127}$", var.image_tag))
+    error_message = "image_tag must be a valid Docker tag: 1-128 chars, starting with a word char, then word chars, dots, or dashes."
+  }
+}
+
 variable "subnet_id" {
   description = "Optional subnet ID. If omitted, the first default VPC subnet is used."
   type        = string
@@ -51,7 +62,7 @@ variable "ecr_force_delete" {
 }
 
 variable "user_data" {
-  description = "Optional cloud-init/user-data override. Defaults to installing Docker and leaving the final app container for a later slice."
+  description = "Optional cloud-init/user-data override. Defaults to installing Docker, pulling image_tag from ECR, and running it on port 80."
   type        = string
   default     = null
 }

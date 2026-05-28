@@ -2,6 +2,8 @@ FROM node:24-alpine AS build
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
+ENV CI=true
+
 # Bypass minimumReleaseAge supply-chain policy
 RUN pnpm config set minimumReleaseAge 0
 

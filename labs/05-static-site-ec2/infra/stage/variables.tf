@@ -28,6 +28,17 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
+variable "image_tag" {
+  description = "Explicit ECR image tag for the EC2 runtime to pull and run. Change this to replace the instance and rerun user-data."
+  type        = string
+  default     = "latest"
+
+  validation {
+    condition     = can(regex("^[\\w][\\w.-]{0,127}$", var.image_tag))
+    error_message = "image_tag must be a valid Docker tag: 1-128 chars, starting with a word char, then word chars, dots, or dashes."
+  }
+}
+
 variable "subnet_id" {
   description = "Optional default-VPC subnet override. Leave null to use the first default subnet."
   type        = string

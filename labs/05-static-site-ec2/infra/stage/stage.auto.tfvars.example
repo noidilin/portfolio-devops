@@ -4,6 +4,9 @@ environment  = "stage"
 project_name = "static-site-ec2"
 service_name = "cidr-calculator"
 
+# Explicit ECR image tag to deploy. Build and push this tag before terraform apply.
+image_tag = "v1"
+
 # Keep public for the tracer bullet; narrow this to your IP for safer testing.
 http_ingress_cidr_blocks = ["0.0.0.0/0"]
 

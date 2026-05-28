@@ -1,13 +1,70 @@
 #!/bin/bash
 set -euxo pipefail
 
+exec > >(tee -a /var/log/cidr-calculator-user-data.log | logger -t cidr-calculator-user-data -s 2>/dev/console) 2>&1
+
+AWS_REGION="${aws_region}"
+ECR_REPOSITORY_URL="${ecr_repository_url}"
+IMAGE_TAG="${image_tag}"
+CONTAINER_IMAGE="${container_image}"
+SERVICE_NAME="${service_name}"
+CONTAINER_NAME="$SERVICE_NAME"
+
+cat >/etc/cidr-calculator-runtime.env <<EOF
+AWS_REGION=$AWS_REGION
+ECR_REPOSITORY_URL=$ECR_REPOSITORY_URL
+IMAGE_TAG=$IMAGE_TAG
+CONTAINER_IMAGE=$CONTAINER_IMAGE
+SERVICE_NAME=$SERVICE_NAME
+CONTAINER_NAME=$CONTAINER_NAME
+EOF
+
+install -d -m 0755 /opt/cidr-calculator
+cat >/opt/cidr-calculator/run-container.sh <<'EOF'
+#!/bin/bash
+set -euxo pipefail
+
+source /etc/cidr-calculator-runtime.env
+
+aws ecr get-login-password --region "$AWS_REGION" \
+  | docker login --username AWS --password-stdin "$${ECR_REPOSITORY_URL%%/*}"
+
+docker pull "$CONTAINER_IMAGE"
+docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+docker run \
+  --detach \
+  --name "$CONTAINER_NAME" \
+  --restart unless-stopped \
+  --publish 80:80 \
+  "$CONTAINER_IMAGE"
+EOF
+chmod 0755 /opt/cidr-calculator/run-container.sh
+
 dnf update -y
-dnf install -y docker
+dnf install -y docker awscli
 systemctl enable --now docker
 systemctl enable --now amazon-ssm-agent || true
 
-cat >/etc/cidr-calculator-runtime.env <<'EOF'
-AWS_REGION=${aws_region}
-ECR_REPOSITORY_URL=${ecr_repository_url}
-SERVICE_NAME=${service_name}
+cat >/etc/systemd/system/cidr-calculator.service <<EOF
+[Unit]
+Description=Run CIDR calculator container from ECR
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/cidr-calculator-runtime.env
+ExecStart=/opt/cidr-calculator/run-container.sh
+ExecStop=/usr/bin/docker rm -f $CONTAINER_NAME
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
 EOF
+
+systemctl daemon-reload
+systemctl enable --now cidr-calculator.service
+systemctl status --no-pager cidr-calculator.service
