@@ -1,0 +1,8 @@
+# Copy to backend.hcl and adjust for your account before `terraform init -backend-config=backend.hcl`.
+# Backend configuration is intentionally separate from .auto.tfvars because Terraform loads it during init.
+
+bucket         = "noidilin-tf-state"
+key            = "labs/06-static-site-ecs/stage/terraform.tfstate"
+region         = "ap-northeast-1"
+use_lockfile   = true
+encrypt        = true
