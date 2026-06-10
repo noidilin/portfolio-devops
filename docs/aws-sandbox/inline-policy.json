@@ -1,0 +1,262 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyBoundaryPolicyTampering",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:policy/lab-devops-permissions-boundary",
+        "arn:aws:iam::*:policy/lab-gitops-oidc-apply-permissions-boundary"
+      ]
+    },
+    {
+      "Sid": "AllowListOidcProviders",
+      "Effect": "Allow",
+      "Action": "iam:ListOpenIDConnectProviders",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowGitHubOidcProviderBootstrap",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UntagOpenIDConnectProvider",
+        "iam:ListOpenIDConnectProviderTags",
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:RemoveClientIDFromOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint"
+      ],
+      "Resource": "arn:aws:iam::*:oidc-provider/token.actions.githubusercontent.com"
+    },
+    {
+      "Sid": "DenyCreateLabRolesWithoutApprovedBoundary",
+      "Effect": "Deny",
+      "Action": "iam:CreateRole",
+      "Resource": [
+        "arn:aws:iam::*:role/devops-*",
+        "arn:aws:iam::*:role/lab-*",
+        "arn:aws:iam::*:role/terraform-*"
+      ],
+      "Condition": {
+        "ArnNotLikeIfExists": {
+          "iam:PermissionsBoundary": [
+            "arn:aws:iam::*:policy/lab-devops-permissions-boundary",
+            "arn:aws:iam::*:policy/lab-gitops-oidc-apply-permissions-boundary"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyRemovingRoleBoundaries",
+      "Effect": "Deny",
+      "Action": "iam:DeleteRolePermissionsBoundary",
+      "Resource": [
+        "arn:aws:iam::*:role/devops-*",
+        "arn:aws:iam::*:role/lab-*",
+        "arn:aws:iam::*:role/terraform-*"
+      ]
+    },
+    {
+      "Sid": "AllowLabRoleManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:UpdateRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListRoleTags",
+        "iam:ListInstanceProfilesForRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/devops-*",
+        "arn:aws:iam::*:role/lab-*",
+        "arn:aws:iam::*:role/terraform-*"
+      ],
+      "Condition": {
+        "ArnLikeIfExists": {
+          "iam:PermissionsBoundary": [
+            "arn:aws:iam::*:policy/lab-devops-permissions-boundary",
+            "arn:aws:iam::*:policy/lab-gitops-oidc-apply-permissions-boundary"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowLabRoleInlinePolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/devops-*",
+        "arn:aws:iam::*:role/lab-*",
+        "arn:aws:iam::*:role/terraform-*"
+      ]
+    },
+    {
+      "Sid": "AllowLabManagedPolicyManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:TagPolicy",
+        "iam:UntagPolicy",
+        "iam:ListPolicyTags"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:policy/devops-*",
+        "arn:aws:iam::*:policy/lab-*",
+        "arn:aws:iam::*:policy/terraform-*"
+      ]
+    },
+    {
+      "Sid": "AllowAttachingApprovedPoliciesToLabRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/devops-*",
+        "arn:aws:iam::*:role/lab-*",
+        "arn:aws:iam::*:role/terraform-*"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::*:policy/devops-*",
+            "arn:aws:iam::*:policy/lab-*",
+            "arn:aws:iam::*:policy/terraform-*",
+            "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+            "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+            "arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowIamReadForTroubleshooting",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:policy/devops-*",
+        "arn:aws:iam::*:policy/lab-*",
+        "arn:aws:iam::*:policy/terraform-*",
+        "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+        "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices"
+      ]
+    },
+    {
+      "Sid": "AllowRoleReadForTroubleshooting",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/devops-*",
+        "arn:aws:iam::*:role/lab-*",
+        "arn:aws:iam::*:role/terraform-*",
+        "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_agent_*"
+      ]
+    },
+    {
+      "Sid": "AllowLabInstanceProfileManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:GetInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:TagInstanceProfile",
+        "iam:UntagInstanceProfile",
+        "iam:ListInstanceProfileTags"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:instance-profile/devops-*",
+        "arn:aws:iam::*:instance-profile/lab-*",
+        "arn:aws:iam::*:instance-profile/terraform-*"
+      ]
+    },
+    {
+      "Sid": "AllowPassLabRolesToServices",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::*:role/devops-*",
+        "arn:aws:iam::*:role/lab-*",
+        "arn:aws:iam::*:role/terraform-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "ec2.amazonaws.com",
+            "ecs-tasks.amazonaws.com",
+            "ecs.amazonaws.com",
+            "lambda.amazonaws.com",
+            "eks.amazonaws.com",
+            "rds.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowNeededServiceLinkedRoles",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": [
+        "arn:aws:iam::*:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "arn:aws:iam::*:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService",
+        "arn:aws:iam::*:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing",
+        "arn:aws:iam::*:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
+        "arn:aws:iam::*:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS",
+        "arn:aws:iam::*:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKS"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": [
+            "ecs.amazonaws.com",
+            "ecs.application-autoscaling.amazonaws.com",
+            "elasticloadbalancing.amazonaws.com",
+            "autoscaling.amazonaws.com",
+            "rds.amazonaws.com",
+            "eks.amazonaws.com"
+          ]
+        }
+      }
+    }
+  ]
+}
