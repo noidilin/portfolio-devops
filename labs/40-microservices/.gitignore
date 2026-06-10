@@ -1,2 +1,6 @@
 node_modules/
 videos/
+!video-streaming/videos/
+!video-streaming/videos/**
+
+chapter/*
