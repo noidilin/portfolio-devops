@@ -176,6 +176,7 @@ resource "aws_iam_policy" "github_apply" {
         Effect = "Allow"
         Action = [
           "ecs:CreateCluster", "ecs:DeleteCluster", "ecs:CreateService", "ecs:UpdateService", "ecs:DeleteService",
+          "ecs:CreateExpressGatewayService", "ecs:DeleteExpressGatewayService", "ecs:DescribeExpressGatewayService", "ecs:UpdateExpressGatewayService", "ecs:MonitorExpressGatewayService",
           "ecs:RegisterTaskDefinition", "ecs:DeregisterTaskDefinition", "ecs:Describe*", "ecs:List*", "ecs:TagResource", "ecs:UntagResource",
           "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DescribeLogGroups", "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource",
           "application-autoscaling:RegisterScalableTarget", "application-autoscaling:DeregisterScalableTarget", "application-autoscaling:PutScalingPolicy",
