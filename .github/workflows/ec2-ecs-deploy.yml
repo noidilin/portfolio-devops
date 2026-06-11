@@ -15,7 +15,7 @@ on:
     paths:
       - "labs/05-static-site-ec2/**"
       - "labs/06-static-site-ecs/**"
-      - ".github/workflows/lab-container-deploy.yml"
+      - ".github/workflows/ec2-ecs-deploy.yml"
 
 permissions:
   id-token: write
