@@ -194,7 +194,7 @@ resource "aws_iam_policy" "github_apply" {
         Effect = "Allow"
         Action = [
           "iam:CreateRole", "iam:DeleteRole", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:CreatePolicy", "iam:DeletePolicy",
-          "iam:GetRole", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies",
+          "iam:GetRole", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies",
           "iam:CreateInstanceProfile", "iam:DeleteInstanceProfile", "iam:AddRoleToInstanceProfile", "iam:RemoveRoleFromInstanceProfile",
           "iam:GetInstanceProfile", "iam:ListInstanceProfilesForRole", "iam:TagRole", "iam:TagPolicy", "iam:TagInstanceProfile"
         ]
