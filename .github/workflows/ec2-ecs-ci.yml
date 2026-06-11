@@ -37,7 +37,7 @@ jobs:
 
           include_05=false
           include_06=false
-          if grep -Eq '^(infra/account-bootstrap/|\.github/workflows/lab-container-(ci|deploy|destroy)\.yml)' <<<"$CHANGED"; then
+          if grep -Eq '^(infra/account-bootstrap/|\.github/workflows/ec2-ecs-(ci|deploy|destroy)\.yml)' <<<"$CHANGED"; then
             include_05=true
             include_06=true
           fi
