@@ -177,7 +177,7 @@ resource "aws_iam_policy" "github_apply" {
         Action = [
           "ecs:CreateCluster", "ecs:DeleteCluster", "ecs:CreateService", "ecs:UpdateService", "ecs:DeleteService",
           "ecs:RegisterTaskDefinition", "ecs:DeregisterTaskDefinition", "ecs:Describe*", "ecs:List*", "ecs:TagResource", "ecs:UntagResource",
-          "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DescribeLogGroups", "logs:TagResource", "logs:UntagResource",
+          "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DescribeLogGroups", "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource",
           "application-autoscaling:RegisterScalableTarget", "application-autoscaling:DeregisterScalableTarget", "application-autoscaling:PutScalingPolicy",
           "application-autoscaling:DeleteScalingPolicy", "application-autoscaling:Describe*", "application-autoscaling:TagResource",
           "elasticloadbalancing:Describe*"
@@ -189,7 +189,7 @@ resource "aws_iam_policy" "github_apply" {
         Effect = "Allow"
         Action = [
           "iam:CreateRole", "iam:DeleteRole", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:PutRolePolicy", "iam:DeleteRolePolicy",
-          "iam:GetRole", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies", "iam:TagRole"
+          "iam:GetRole", "iam:GetRolePolicy", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies", "iam:TagRole"
         ]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.name_prefix}-*",
