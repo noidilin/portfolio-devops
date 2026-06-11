@@ -10,89 +10,124 @@ on:
         options:
           - "05-static-site-ec2"
           - "06-static-site-ecs"
+  push:
+    branches: [main]
+    paths:
+      - "labs/05-static-site-ec2/**"
+      - "labs/06-static-site-ecs/**"
+      - ".github/workflows/lab-container-deploy.yml"
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  select-lab:
+  detect-labs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      id: ${{ steps.select.outputs.id }}
-      path: ${{ steps.select.outputs.path }}
-      port: ${{ steps.select.outputs.port }}
-      environment: ${{ steps.select.outputs.environment }}
-      ecr_repository_name: ${{ steps.select.outputs.ecr_repository_name }}
-      plan_role_arn: ${{ steps.select.outputs.plan_role_arn }}
-      image_push_role_arn: ${{ steps.select.outputs.image_push_role_arn }}
-      apply_role_arn: ${{ steps.select.outputs.apply_role_arn }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_labs: ${{ steps.detect.outputs.has_labs }}
     steps:
-      - id: select
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
         shell: bash
         run: |
           set -euo pipefail
-          case "${{ inputs.lab }}" in
-            05-static-site-ec2)
-              echo "id=05-static-site-ec2" >> "$GITHUB_OUTPUT"
-              echo "path=labs/05-static-site-ec2" >> "$GITHUB_OUTPUT"
-              echo "port=8090" >> "$GITHUB_OUTPUT"
-              echo "environment=lab-05-stage" >> "$GITHUB_OUTPUT"
-              echo "ecr_repository_name=devops-static-site-ec2-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
-              echo "plan_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan" >> "$GITHUB_OUTPUT"
-              echo "image_push_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-image-push" >> "$GITHUB_OUTPUT"
-              echo "apply_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-apply" >> "$GITHUB_OUTPUT"
-              ;;
-            06-static-site-ecs)
-              echo "id=06-static-site-ecs" >> "$GITHUB_OUTPUT"
-              echo "path=labs/06-static-site-ecs" >> "$GITHUB_OUTPUT"
-              echo "port=8091" >> "$GITHUB_OUTPUT"
-              echo "environment=lab-06-stage" >> "$GITHUB_OUTPUT"
-              echo "ecr_repository_name=devops-static-site-ecs-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
-              echo "plan_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan" >> "$GITHUB_OUTPUT"
-              echo "image_push_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-image-push" >> "$GITHUB_OUTPUT"
-              echo "apply_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-apply" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
+
+          include_05=false
+          include_06=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            case "${{ inputs.lab }}" in
+              05-static-site-ec2) include_05=true ;;
+              06-static-site-ecs) include_06=true ;;
+            esac
+          else
+            CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+            echo "$CHANGED"
+
+            if grep -q '^labs/05-static-site-ec2/' <<<"$CHANGED"; then include_05=true; fi
+            if grep -q '^labs/06-static-site-ecs/' <<<"$CHANGED"; then include_06=true; fi
+            if grep -q '^\.github/workflows/lab-container-deploy\.yml' <<<"$CHANGED"; then
+              include_05=true
+              include_06=true
+            fi
+          fi
+
+          MATRIX=$(INCLUDE_05="$include_05" INCLUDE_06="$include_06" node <<'NODE'
+          const labs = [];
+          if (process.env.INCLUDE_05 === 'true') labs.push({
+            id: '05-static-site-ec2',
+            path: 'labs/05-static-site-ec2',
+            port: 8090,
+            environment: 'lab-05-stage',
+            ecr_repository_name: 'devops-static-site-ec2-stage-cidr-calculator',
+            plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan',
+            image_push_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-image-push',
+            apply_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-apply'
+          });
+          if (process.env.INCLUDE_06 === 'true') labs.push({
+            id: '06-static-site-ecs',
+            path: 'labs/06-static-site-ecs',
+            port: 8091,
+            environment: 'lab-06-stage',
+            ecr_repository_name: 'devops-static-site-ecs-stage-cidr-calculator',
+            plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan',
+            image_push_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-image-push',
+            apply_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-apply'
+          });
+          process.stdout.write(JSON.stringify(labs));
+          NODE
+          )
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then echo "has_labs=false" >> "$GITHUB_OUTPUT"; else echo "has_labs=true" >> "$GITHUB_OUTPUT"; fi
 
   preflight-build-push-plan:
-    needs: select-lab
+    needs: detect-labs
+    if: needs.detect-labs.outputs.has_labs == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
         with:
-          working_directory: ${{ needs.select-lab.outputs.path }}
+          working_directory: ${{ matrix.lab.path }}
       - name: App checks
-        working-directory: ${{ needs.select-lab.outputs.path }}/app
+        working-directory: ${{ matrix.lab.path }}/app
         run: |
           pnpm install --frozen-lockfile
           pnpm lint
           pnpm test
           pnpm build
       - name: Build and local smoke
-        working-directory: ${{ needs.select-lab.outputs.path }}
+        working-directory: ${{ matrix.lab.path }}
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE="cidr-calculator:deploy-${GITHUB_SHA}"
-          NAME="cidr-deploy-${GITHUB_RUN_ID}-${{ needs.select-lab.outputs.id }}"
+          IMAGE="cidr-calculator:deploy-${GITHUB_SHA}-${{ matrix.lab.id }}"
+          NAME="cidr-deploy-${GITHUB_RUN_ID}-${{ matrix.lab.id }}"
           docker build -t "$IMAGE" .
-          docker run --rm -d --name "$NAME" -p "${{ needs.select-lab.outputs.port }}:80" "$IMAGE"
+          docker run --rm -d --name "$NAME" -p "${{ matrix.lab.port }}:80" "$IMAGE"
           trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
           for attempt in {1..30}; do
-            if curl -fsS "http://localhost:${{ needs.select-lab.outputs.port }}" | grep -q "CIDR Calculator"; then exit 0; fi
+            if curl -fsS "http://localhost:${{ matrix.lab.port }}" | grep -q "CIDR Calculator"; then exit 0; fi
             sleep 2
           done
           docker logs "$NAME"
           exit 1
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ needs.select-lab.outputs.plan_role_arn }}
+          role-to-assume: ${{ matrix.lab.plan_role_arn }}
           aws-region: ap-northeast-1
       - name: Terraform pre-plan
-        working-directory: ${{ needs.select-lab.outputs.path }}/infra/stage
+        working-directory: ${{ matrix.lab.path }}/infra/stage
         run: |
           terraform fmt -check -recursive ../..
           terraform init -backend-config=backend.hcl
@@ -100,40 +135,45 @@ jobs:
           terraform plan -input=false -no-color -var="image_tag=sha-${GITHUB_SHA}"
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ needs.select-lab.outputs.image_push_role_arn }}
+          role-to-assume: ${{ matrix.lab.image_push_role_arn }}
           aws-region: ap-northeast-1
       - name: Push or reuse immutable image
-        working-directory: ${{ needs.select-lab.outputs.path }}
+        working-directory: ${{ matrix.lab.path }}
         shell: bash
         run: |
           set -euo pipefail
           IMAGE_TAG="sha-${GITHUB_SHA}"
-          REPO="${{ needs.select-lab.outputs.ecr_repository_name }}"
+          REPO="${{ matrix.lab.ecr_repository_name }}"
           ECR_REPOSITORY_URL=$(aws ecr describe-repositories --repository-names "$REPO" --query 'repositories[0].repositoryUri' --output text)
           if aws ecr describe-images --repository-name "$REPO" --image-ids "imageTag=${IMAGE_TAG}" >/dev/null 2>&1; then
             echo "Reusing existing image ${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
           else
             REGISTRY=${ECR_REPOSITORY_URL%/*}
             aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin "$REGISTRY"
-            docker tag "cidr-calculator:deploy-${GITHUB_SHA}" "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+            docker tag "cidr-calculator:deploy-${GITHUB_SHA}-${{ matrix.lab.id }}" "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
             docker push "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
           fi
 
   approve-and-apply:
-    needs: [select-lab, preflight-build-push-plan]
+    needs: [detect-labs, preflight-build-push-plan]
+    if: needs.detect-labs.outputs.has_labs == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ needs.select-lab.outputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
+    environment: ${{ matrix.lab.environment }}
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
         with:
-          working_directory: ${{ needs.select-lab.outputs.path }}
+          working_directory: ${{ matrix.lab.path }}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ needs.select-lab.outputs.apply_role_arn }}
+          role-to-assume: ${{ matrix.lab.apply_role_arn }}
           aws-region: ap-northeast-1
       - name: Terraform apply
-        working-directory: ${{ needs.select-lab.outputs.path }}/infra/stage
+        working-directory: ${{ matrix.lab.path }}/infra/stage
         shell: bash
         run: |
           set -euo pipefail
@@ -142,7 +182,7 @@ jobs:
           terraform plan -input=false -var="image_tag=${IMAGE_TAG}"
           terraform apply -input=false -auto-approve -var="image_tag=${IMAGE_TAG}"
       - name: Deployed smoke test
-        working-directory: ${{ needs.select-lab.outputs.path }}/infra/stage
+        working-directory: ${{ matrix.lab.path }}/infra/stage
         shell: bash
         run: |
           set -euo pipefail
