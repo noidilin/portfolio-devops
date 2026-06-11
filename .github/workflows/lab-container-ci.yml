@@ -23,7 +23,7 @@ jobs:
       matrix: ${{ steps.detect.outputs.matrix }}
       has_labs: ${{ steps.detect.outputs.has_labs }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - id: detect
@@ -72,8 +72,8 @@ jobs:
       matrix:
         lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
         with:
           working_directory: ${{ matrix.lab.path }}
       - name: App checks
@@ -101,7 +101,7 @@ jobs:
           done
           docker logs "$NAME"
           exit 1
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ matrix.lab.plan_role_arn }}
           aws-region: ap-northeast-1
@@ -116,7 +116,7 @@ jobs:
           terraform validate
           terraform plan -input=false -no-color -var="image_tag=sha-${GITHUB_SHA}" | tee plan.txt
       - name: Comment Terraform plan
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
