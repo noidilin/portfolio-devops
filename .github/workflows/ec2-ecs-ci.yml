@@ -7,9 +7,9 @@ on:
       - "labs/05-static-site-ec2/**"
       - "labs/06-static-site-ecs/**"
       - "infra/account-bootstrap/**"
-      - ".github/workflows/lab-container-ci.yml"
-      - ".github/workflows/lab-container-deploy.yml"
-      - ".github/workflows/lab-container-destroy.yml"
+      - ".github/workflows/ec2-ecs-ci.yml"
+      - ".github/workflows/ec2-ecs-deploy.yml"
+      - ".github/workflows/ec2-ecs-destroy.yml"
 
 permissions:
   id-token: write
