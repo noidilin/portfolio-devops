@@ -5,13 +5,10 @@ project_name = "static-site-ec2"
 service_name = "cidr-calculator"
 
 # Explicit ECR image tag to deploy. Build and push this tag before terraform apply.
-image_tag = "latest"
+image_tag = "sha-0000000000000000000000000000000000000000"
 
 # Keep public for the tracer bullet; narrow this to your IP for safer testing.
 http_ingress_cidr_blocks = ["0.0.0.0/0"]
 
 # Leave null to select the first subnet in the default VPC.
 subnet_id = null
-
-# Set true only for disposable lab teardown when images remain in ECR.
-ecr_force_delete = false

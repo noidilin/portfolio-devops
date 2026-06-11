@@ -6,6 +6,8 @@
 !*.tfvars.example
 backend.hcl
 !backend.hcl.example
+!infra/stage/backend.hcl
+!infra/bootstrap/backend.hcl
 *.tfstate
 *.tfstate.*
 crash.log

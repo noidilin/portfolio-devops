@@ -1,16 +1,16 @@
 output "ecr_repository_name" {
   description = "Name of the ECR repository for the service image."
-  value       = aws_ecr_repository.service.name
+  value       = data.aws_ecr_repository.service.name
 }
 
 output "ecr_repository_url" {
   description = "Repository URL to use when tagging and pushing Docker images."
-  value       = aws_ecr_repository.service.repository_url
+  value       = data.aws_ecr_repository.service.repository_url
 }
 
 output "ecr_repository_arn" {
   description = "ARN of the ECR repository."
-  value       = aws_ecr_repository.service.arn
+  value       = data.aws_ecr_repository.service.arn
 }
 
 output "instance_id" {

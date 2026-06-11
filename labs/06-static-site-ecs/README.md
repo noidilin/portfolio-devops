@@ -44,14 +44,25 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8090
 - Reusable module: `infra/modules/ecs-express-static-site`
 - Stage root: `infra/stage`
 
-The stage root provisions:
+The stage root expects a bootstrapped ECR repository and provisions:
 
-- an ECR repository for the `cidr-calculator` image artifact
 - an ECS cluster
 - ECS task execution, task, and infrastructure IAM roles with the lab permissions boundary
 - a CloudWatch log group
 - an ECS Express Gateway service using the ECR image tag you provide
 - outputs for image push commands, service inspection, logs, and HTTPS access
+
+## CI/CD workflow
+
+This lab has GitHub Actions support for PR checks, manual approved deploys, and manual approved destroys. Bootstrap resources live outside the disposable runtime:
+
+- shared OIDC provider: `infra/account-bootstrap/github-oidc-provider/`
+- lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
+- runtime: `infra/stage/` (ECS Express service only)
+
+Create GitHub Environment `lab-06-stage` with required reviewers before using deploy/destroy. Dispatch `Lab container deploy` from `main`, choose `06-static-site-ecs`, approve the environment gate, and the workflow deploys image tag `sha-${GITHUB_SHA}`. Dispatch `Lab container destroy` to destroy only the ECS runtime; ECR, OIDC, roles, and image history remain.
+
+See [`../../docs/container-cicd-ec2-ecs.md`](../../docs/container-cicd-ec2-ecs.md) for the full runbook.
 
 ## Backend and variables pattern
 
@@ -74,15 +85,13 @@ terraform validate
 
 Terraform consumes an explicit image tag. It does not build the image and does not infer a tag from Git.
 
-### Step 1: create base infra outputs
+### Step 1: get the bootstrapped ECR repository URL
 
-If this is a fresh lab, the ECR repository URL is not available until Terraform creates it. You can first apply with the intended tag after the image exists, or temporarily target the repository/roles if you want to create ECR before pushing.
-
-Typical learning flow:
+Bootstrap creates the durable ECR repository before runtime apply:
 
 ```sh
 cd infra/stage
-terraform apply -target=module.runtime.aws_ecr_repository.service
+terraform init -backend-config=backend.hcl
 ECR_REPOSITORY_URL=$(terraform output -raw ecr_repository_url)
 ECR_REGISTRY=$(echo "$ECR_REPOSITORY_URL" | cut -d/ -f1)
 ```
@@ -161,4 +170,4 @@ cd infra/stage
 terraform destroy
 ```
 
-Set `ecr_force_delete = true` in `stage.auto.tfvars` if the ECR repository still contains images and you want Terraform to remove it on destroy.
+Runtime destroy leaves the bootstrapped ECR repository and image history intact.

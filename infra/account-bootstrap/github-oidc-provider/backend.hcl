@@ -1,5 +1,5 @@
 bucket       = "noidilin-tf-state"
-key          = "labs/06-static-site-ecs/infra/stage/terraform.tfstate"
+key          = "infra/account-bootstrap/github-oidc-provider/terraform.tfstate"
 region       = "ap-northeast-1"
 use_lockfile = true
 encrypt      = true

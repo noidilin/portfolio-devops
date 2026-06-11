@@ -6,7 +6,7 @@ project_name = "static-site-ecs"
 service_name = "cidr-calculator"
 
 # Build and push this exact tag to ECR before creating/updating the Express service.
-image_tag = "latest"
+image_tag = "sha-0000000000000000000000000000000000000000"
 
 # Small lab-sized ECS Express Mode task shape.
 cpu    = "256"
@@ -20,8 +20,6 @@ auto_scaling_metric         = "AVERAGE_CPU"
 auto_scaling_target_value   = 60
 wait_for_steady_state       = true
 log_retention_days          = 14
-ecr_image_tag_mutability    = "MUTABLE"
-ecr_force_delete            = false
 
 # Leave empty to let ECS Express Mode use default public networking.
 # If you set subnet_ids, provide at least two subnets. security_group_ids is optional.

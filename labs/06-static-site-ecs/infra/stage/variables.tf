@@ -25,7 +25,7 @@ variable "service_name" {
 variable "image_tag" {
   description = "Explicit ECR image tag for ECS Express Mode to deploy. Change this to create a new Express service revision."
   type        = string
-  default     = "latest"
+  default     = "sha-0000000000000000000000000000000000000000"
 
   validation {
     condition     = can(regex("^[\\w][\\w.-]{0,127}$", var.image_tag))
@@ -87,17 +87,6 @@ variable "security_group_ids" {
   default     = []
 }
 
-variable "ecr_image_tag_mutability" {
-  description = "Whether image tags in ECR are MUTABLE or IMMUTABLE."
-  type        = string
-  default     = "MUTABLE"
-}
-
-variable "ecr_force_delete" {
-  description = "Allow Terraform to destroy the lab ECR repository even if it contains images."
-  type        = bool
-  default     = false
-}
 
 variable "log_retention_days" {
   description = "CloudWatch Logs retention in days for container logs."
@@ -109,4 +98,16 @@ variable "wait_for_steady_state" {
   description = "Wait for ECS Express service steady state before Terraform apply completes."
   type        = bool
   default     = true
+}
+
+variable "ecr_image_tag_mutability" {
+  description = "Deprecated: ECR is owned by infra/bootstrap and uses immutable tags. Kept only to avoid warnings from older local tfvars."
+  type        = string
+  default     = "IMMUTABLE"
+}
+
+variable "ecr_force_delete" {
+  description = "Deprecated: ECR is owned by infra/bootstrap and is no longer destroyed with runtime. Kept only to avoid warnings from older local tfvars."
+  type        = bool
+  default     = false
 }

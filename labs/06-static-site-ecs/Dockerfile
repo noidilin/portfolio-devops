@@ -8,7 +8,7 @@ ENV CI=true
 RUN pnpm config set minimumReleaseAge 0
 
 COPY app/package.json app/pnpm-lock.yaml ./
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 COPY app/ ./
 RUN pnpm build

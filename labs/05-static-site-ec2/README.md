@@ -77,9 +77,8 @@ pnpm docker:stop    # stops the cidr-calc container
 - Reusable module: `infra/modules/ec2-docker-runtime`
 - Stage root: `infra/stage`
 
-The stage root provisions:
+The stage root expects a bootstrapped ECR repository and provisions:
 
-- an ECR repository for the `cidr-calculator` image artifact
 - one public EC2 instance in the default VPC/subnets
 - an IAM instance profile for SSM Session Manager and ECR image pulls
 - a security group with public HTTP ingress on port 80, no SSH ingress, and outbound access
@@ -128,6 +127,18 @@ Inspect useful commands/URLs:
 ```sh
 terraform output
 ```
+
+## CI/CD workflow
+
+This lab has GitHub Actions support for PR checks, manual approved deploys, and manual approved destroys. Bootstrap resources live outside the disposable runtime:
+
+- shared OIDC provider: `infra/account-bootstrap/github-oidc-provider/`
+- lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
+- runtime: `infra/stage/` (EC2 host only)
+
+Create GitHub Environment `lab-05-stage` with required reviewers before using deploy/destroy. Dispatch `Lab container deploy` from `main`, choose `05-static-site-ec2`, approve the environment gate, and the workflow deploys image tag `sha-${GITHUB_SHA}`. Dispatch `Lab container destroy` to destroy only the EC2 runtime; ECR, OIDC, roles, and image history remain.
+
+See [`../../docs/container-cicd-ec2-ecs.md`](../../docs/container-cicd-ec2-ecs.md) for the full runbook.
 
 ## Deploy a pushed image tag
 
@@ -317,7 +328,7 @@ cd infra/stage
 terraform destroy
 ```
 
-Set `ecr_force_delete = true` in `stage.auto.tfvars` if the ECR repository still contains images and you want Terraform to remove it on destroy.
+Runtime destroy leaves the bootstrapped ECR repository and image history intact.
 
 ## Further reading
 

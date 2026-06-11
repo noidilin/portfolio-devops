@@ -12,7 +12,7 @@ variable "service_name" {
 variable "image_tag" {
   description = "Explicit ECR image tag for ECS Express Mode to deploy. Terraform does not build or infer this tag."
   type        = string
-  default     = "latest"
+  default     = "sha-0000000000000000000000000000000000000000"
 
   validation {
     condition     = can(regex("^[\\w][\\w.-]{0,127}$", var.image_tag))
@@ -100,22 +100,6 @@ variable "security_group_ids" {
   default     = []
 }
 
-variable "ecr_image_tag_mutability" {
-  description = "Whether image tags in ECR are MUTABLE or IMMUTABLE."
-  type        = string
-  default     = "MUTABLE"
-
-  validation {
-    condition     = contains(["MUTABLE", "IMMUTABLE"], var.ecr_image_tag_mutability)
-    error_message = "ecr_image_tag_mutability must be MUTABLE or IMMUTABLE."
-  }
-}
-
-variable "ecr_force_delete" {
-  description = "Allow Terraform to delete the lab ECR repository even when it contains images. Useful for disposable labs."
-  type        = bool
-  default     = false
-}
 
 variable "log_retention_days" {
   description = "CloudWatch Logs retention in days for the container log group."

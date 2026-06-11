@@ -1,15 +1,3 @@
-resource "aws_ecr_repository" "service" {
-  name                 = "${var.name_prefix}-${var.service_name}"
-  image_tag_mutability = var.ecr_image_tag_mutability
-  force_delete         = var.ecr_force_delete
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = local.common_tags
-}
-
 resource "terraform_data" "image_tag" {
   input = var.image_tag
 }
@@ -88,7 +76,7 @@ resource "aws_instance" "service" {
   iam_instance_profile        = aws_iam_instance_profile.instance.name
   user_data = coalesce(var.user_data, templatefile("${path.module}/user-data.sh.tftpl", {
     aws_region         = data.aws_region.current.region
-    ecr_repository_url = aws_ecr_repository.service.repository_url
+    ecr_repository_url = data.aws_ecr_repository.service.repository_url
     image_tag          = var.image_tag
     container_image    = local.container_image
     service_name       = var.service_name

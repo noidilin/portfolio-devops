@@ -1,15 +1,3 @@
-resource "aws_ecr_repository" "service" {
-  name                 = "${var.name_prefix}-${var.service_name}"
-  image_tag_mutability = var.ecr_image_tag_mutability
-  force_delete         = var.ecr_force_delete
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = local.common_tags
-}
-
 resource "aws_cloudwatch_log_group" "service" {
   name              = "/ecs/express/${var.name_prefix}-${var.service_name}"
   retention_in_days = var.log_retention_days

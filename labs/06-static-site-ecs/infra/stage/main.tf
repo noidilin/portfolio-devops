@@ -13,8 +13,6 @@ module "runtime" {
   auto_scaling_target_value = var.auto_scaling_target_value
   subnet_ids                = var.subnet_ids
   security_group_ids        = var.security_group_ids
-  ecr_image_tag_mutability  = var.ecr_image_tag_mutability
-  ecr_force_delete          = var.ecr_force_delete
   log_retention_days        = var.log_retention_days
   wait_for_steady_state     = var.wait_for_steady_state
   tags                      = local.default_tags

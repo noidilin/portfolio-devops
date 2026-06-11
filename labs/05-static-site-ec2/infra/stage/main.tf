@@ -7,6 +7,5 @@ module "runtime" {
   image_tag                = var.image_tag
   subnet_id                = var.subnet_id
   http_ingress_cidr_blocks = var.http_ingress_cidr_blocks
-  ecr_force_delete         = var.ecr_force_delete
   tags                     = local.default_tags
 }

@@ -31,7 +31,7 @@ variable "instance_type" {
 variable "image_tag" {
   description = "Explicit ECR image tag for the EC2 runtime to pull and run. Change this to replace the instance and rerun user-data."
   type        = string
-  default     = "latest"
+  default     = "sha-0000000000000000000000000000000000000000"
 
   validation {
     condition     = can(regex("^[\\w][\\w.-]{0,127}$", var.image_tag))
@@ -52,7 +52,7 @@ variable "http_ingress_cidr_blocks" {
 }
 
 variable "ecr_force_delete" {
-  description = "Allow Terraform to destroy the lab ECR repository even if it contains images."
+  description = "Deprecated: ECR is owned by infra/bootstrap and is no longer destroyed with runtime. Kept only to avoid warnings from older local tfvars."
   type        = bool
   default     = false
 }

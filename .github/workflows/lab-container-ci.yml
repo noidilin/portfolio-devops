@@ -1,0 +1,130 @@
+name: Lab container CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "labs/05-static-site-ec2/**"
+      - "labs/06-static-site-ecs/**"
+      - "infra/account-bootstrap/**"
+      - ".github/workflows/lab-container-ci.yml"
+      - ".github/workflows/lab-container-deploy.yml"
+      - ".github/workflows/lab-container-destroy.yml"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  detect-labs:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_labs: ${{ steps.detect.outputs.has_labs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+          echo "$CHANGED"
+
+          include_05=false
+          include_06=false
+          if grep -Eq '^(infra/account-bootstrap/|\.github/workflows/lab-container-(ci|deploy|destroy)\.yml)' <<<"$CHANGED"; then
+            include_05=true
+            include_06=true
+          fi
+          if grep -q '^labs/05-static-site-ec2/' <<<"$CHANGED"; then include_05=true; fi
+          if grep -q '^labs/06-static-site-ecs/' <<<"$CHANGED"; then include_06=true; fi
+
+          MATRIX=$(INCLUDE_05="$include_05" INCLUDE_06="$include_06" node <<'NODE'
+          const labs = [];
+          if (process.env.INCLUDE_05 === 'true') labs.push({
+            id: '05-static-site-ec2',
+            path: 'labs/05-static-site-ec2',
+            port: 8090,
+            plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan'
+          });
+          if (process.env.INCLUDE_06 === 'true') labs.push({
+            id: '06-static-site-ecs',
+            path: 'labs/06-static-site-ecs',
+            port: 8091,
+            plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan'
+          });
+          process.stdout.write(JSON.stringify(labs));
+          NODE
+          )
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then echo "has_labs=false" >> "$GITHUB_OUTPUT"; else echo "has_labs=true" >> "$GITHUB_OUTPUT"; fi
+
+  check-lab:
+    needs: detect-labs
+    if: needs.detect-labs.outputs.has_labs == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          working_directory: ${{ matrix.lab.path }}
+      - name: App checks
+        working-directory: ${{ matrix.lab.path }}/app
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm test
+          pnpm build
+      - name: Docker build and local smoke
+        working-directory: ${{ matrix.lab.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cidr-calculator:ci-${GITHUB_SHA}-${{ matrix.lab.id }}"
+          NAME="cidr-ci-${GITHUB_RUN_ID}-${{ matrix.lab.id }}"
+          docker build -t "$IMAGE" .
+          docker run --rm -d --name "$NAME" -p "${{ matrix.lab.port }}:80" "$IMAGE"
+          trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS "http://localhost:${{ matrix.lab.port }}" | grep -q "CIDR Calculator"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs "$NAME"
+          exit 1
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ matrix.lab.plan_role_arn }}
+          aws-region: ap-northeast-1
+      - name: Terraform fmt, validate, plan
+        id: tfplan
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive ../..
+          terraform init -backend-config=backend.hcl
+          terraform validate
+          terraform plan -input=false -no-color -var="image_tag=sha-${GITHUB_SHA}" | tee plan.txt
+      - name: Comment Terraform plan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('${{ matrix.lab.path }}/infra/stage/plan.txt', 'utf8');
+            const truncated = plan.length > 60000 ? plan.slice(0, 60000) + '\n\n...truncated...' : plan;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### Terraform plan: ${{ matrix.lab.id }}\n\n\`\`\`terraform\n${truncated}\n\`\`\``
+            });

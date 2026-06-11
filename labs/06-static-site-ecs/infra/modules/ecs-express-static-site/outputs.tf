@@ -1,11 +1,11 @@
 output "ecr_repository_name" {
   description = "ECR repository name for the static site image."
-  value       = aws_ecr_repository.service.name
+  value       = data.aws_ecr_repository.service.name
 }
 
 output "ecr_repository_url" {
   description = "ECR repository URL for docker tag/push."
-  value       = aws_ecr_repository.service.repository_url
+  value       = data.aws_ecr_repository.service.repository_url
 }
 
 output "container_image" {

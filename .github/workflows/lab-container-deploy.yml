@@ -1,0 +1,159 @@
+name: Lab container deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      lab:
+        description: "Lab to deploy"
+        required: true
+        type: choice
+        options:
+          - "05-static-site-ec2"
+          - "06-static-site-ecs"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  select-lab:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.select.outputs.id }}
+      path: ${{ steps.select.outputs.path }}
+      port: ${{ steps.select.outputs.port }}
+      environment: ${{ steps.select.outputs.environment }}
+      ecr_repository_name: ${{ steps.select.outputs.ecr_repository_name }}
+      plan_role_arn: ${{ steps.select.outputs.plan_role_arn }}
+      image_push_role_arn: ${{ steps.select.outputs.image_push_role_arn }}
+      apply_role_arn: ${{ steps.select.outputs.apply_role_arn }}
+    steps:
+      - id: select
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.lab }}" in
+            05-static-site-ec2)
+              echo "id=05-static-site-ec2" >> "$GITHUB_OUTPUT"
+              echo "path=labs/05-static-site-ec2" >> "$GITHUB_OUTPUT"
+              echo "port=8090" >> "$GITHUB_OUTPUT"
+              echo "environment=lab-05-stage" >> "$GITHUB_OUTPUT"
+              echo "ecr_repository_name=devops-static-site-ec2-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
+              echo "plan_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan" >> "$GITHUB_OUTPUT"
+              echo "image_push_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-image-push" >> "$GITHUB_OUTPUT"
+              echo "apply_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-apply" >> "$GITHUB_OUTPUT"
+              ;;
+            06-static-site-ecs)
+              echo "id=06-static-site-ecs" >> "$GITHUB_OUTPUT"
+              echo "path=labs/06-static-site-ecs" >> "$GITHUB_OUTPUT"
+              echo "port=8091" >> "$GITHUB_OUTPUT"
+              echo "environment=lab-06-stage" >> "$GITHUB_OUTPUT"
+              echo "ecr_repository_name=devops-static-site-ecs-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
+              echo "plan_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan" >> "$GITHUB_OUTPUT"
+              echo "image_push_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-image-push" >> "$GITHUB_OUTPUT"
+              echo "apply_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-apply" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  preflight-build-push-plan:
+    needs: select-lab
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          working_directory: ${{ needs.select-lab.outputs.path }}
+      - name: App checks
+        working-directory: ${{ needs.select-lab.outputs.path }}/app
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm test
+          pnpm build
+      - name: Build and local smoke
+        working-directory: ${{ needs.select-lab.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cidr-calculator:deploy-${GITHUB_SHA}"
+          NAME="cidr-deploy-${GITHUB_RUN_ID}-${{ needs.select-lab.outputs.id }}"
+          docker build -t "$IMAGE" .
+          docker run --rm -d --name "$NAME" -p "${{ needs.select-lab.outputs.port }}:80" "$IMAGE"
+          trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS "http://localhost:${{ needs.select-lab.outputs.port }}" | grep -q "CIDR Calculator"; then exit 0; fi
+            sleep 2
+          done
+          docker logs "$NAME"
+          exit 1
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.select-lab.outputs.plan_role_arn }}
+          aws-region: ap-northeast-1
+      - name: Terraform pre-plan
+        working-directory: ${{ needs.select-lab.outputs.path }}/infra/stage
+        run: |
+          terraform fmt -check -recursive ../..
+          terraform init -backend-config=backend.hcl
+          terraform validate
+          terraform plan -input=false -no-color -var="image_tag=sha-${GITHUB_SHA}"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.select-lab.outputs.image_push_role_arn }}
+          aws-region: ap-northeast-1
+      - name: Push or reuse immutable image
+        working-directory: ${{ needs.select-lab.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="sha-${GITHUB_SHA}"
+          REPO="${{ needs.select-lab.outputs.ecr_repository_name }}"
+          ECR_REPOSITORY_URL=$(aws ecr describe-repositories --repository-names "$REPO" --query 'repositories[0].repositoryUri' --output text)
+          if aws ecr describe-images --repository-name "$REPO" --image-ids "imageTag=${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "Reusing existing image ${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+          else
+            REGISTRY=${ECR_REPOSITORY_URL%/*}
+            aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin "$REGISTRY"
+            docker tag "cidr-calculator:deploy-${GITHUB_SHA}" "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+            docker push "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+          fi
+
+  approve-and-apply:
+    needs: [select-lab, preflight-build-push-plan]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.select-lab.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          working_directory: ${{ needs.select-lab.outputs.path }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.select-lab.outputs.apply_role_arn }}
+          aws-region: ap-northeast-1
+      - name: Terraform apply
+        working-directory: ${{ needs.select-lab.outputs.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="sha-${GITHUB_SHA}"
+          terraform init -backend-config=backend.hcl
+          terraform plan -input=false -var="image_tag=${IMAGE_TAG}"
+          terraform apply -input=false -auto-approve -var="image_tag=${IMAGE_TAG}"
+      - name: Deployed smoke test
+        working-directory: ${{ needs.select-lab.outputs.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE_URL=$(terraform output -raw service_url)
+          for attempt in {1..60}; do
+            BODY=$(curl -fsSL "$SERVICE_URL" || true)
+            if printf '%s' "$BODY" | grep -q "CIDR Calculator"; then
+              echo "Smoke test passed: $SERVICE_URL"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Smoke test failed: $SERVICE_URL"
+          exit 1

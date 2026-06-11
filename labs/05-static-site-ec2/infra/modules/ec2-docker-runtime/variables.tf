@@ -18,7 +18,7 @@ variable "instance_type" {
 variable "image_tag" {
   description = "Explicit ECR image tag for the EC2 runtime to pull and run. Change this to replace the instance and rerun user-data."
   type        = string
-  default     = "latest"
+  default     = "sha-0000000000000000000000000000000000000000"
 
   validation {
     condition     = can(regex("^[\\w][\\w.-]{0,127}$", var.image_tag))
@@ -44,22 +44,6 @@ variable "root_volume_size_gb" {
   default     = 20
 }
 
-variable "ecr_image_tag_mutability" {
-  description = "Whether image tags in ECR are MUTABLE or IMMUTABLE."
-  type        = string
-  default     = "MUTABLE"
-
-  validation {
-    condition     = contains(["MUTABLE", "IMMUTABLE"], var.ecr_image_tag_mutability)
-    error_message = "ecr_image_tag_mutability must be MUTABLE or IMMUTABLE."
-  }
-}
-
-variable "ecr_force_delete" {
-  description = "Allow Terraform to delete the ECR repository even when it contains images. Useful for disposable labs."
-  type        = bool
-  default     = false
-}
 
 variable "user_data" {
   description = "Optional cloud-init/user-data override. Defaults to installing Docker, pulling image_tag from ECR, and running it on port 80."
