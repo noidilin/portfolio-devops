@@ -108,7 +108,7 @@ resource "aws_iam_policy" "github_plan" {
       {
         Sid    = "AllowIamRead"
         Effect = "Allow"
-        Action = ["iam:GetRole", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies"]
+        Action = ["iam:GetRole", "iam:GetRolePolicy", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies"]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.name_prefix}-*",
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.name_prefix}-*",
