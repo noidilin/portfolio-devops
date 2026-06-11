@@ -1,4 +1,4 @@
-name: Lab container CI
+name: ec2-ecs-ci
 
 on:
   pull_request:

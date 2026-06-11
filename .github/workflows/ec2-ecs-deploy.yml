@@ -1,4 +1,4 @@
-name: Lab container deploy
+name: ec2-ecs-deploy
 
 on:
   workflow_dispatch:
