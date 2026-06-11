@@ -78,6 +78,17 @@ Deploy workflow 使用不可變的 image tag：`sha-${GITHUB_SHA}`。
 
 `.github/workflows/lab-container-destroy.yml` 使用相同的 environment approval 模型，但只會銷毀 runtime infrastructure。它不會銷毀 OIDC、IAM bootstrap role，或 ECR image history。
 
+## AWS Well-Architected Framework 對應
+
+此設計也刻意對齊 AWS Well-Architected Framework 的六大支柱：
+
+- 卓越營運（Operational Excellence）：所有部署步驟都以 GitHub Actions 與 Terraform 自動化，PR 會執行 lint、test、build、Docker smoke test、`terraform fmt`、`validate` 與 `plan`。Terraform plan 會回寫到 PR comment，讓 reviewer 在合併前就能檢查變更內容。
+- 安全性（Security）：GitHub 不保存長期 AWS access key，而是透過 OIDC 與 AWS STS 取得短期 role session。`github-plan`、`github-image-push`、`github-apply` 依用途拆分，並以 IAM trust condition、branch/environment scope 與 permissions boundary 限制權限。
+- 可靠性（Reliability）：部署使用不可變的 `sha-${GITHUB_SHA}` image tag，重新執行 workflow 會部署同一個 image digest，避免 `latest` 漂移造成不可預期的差異。bootstrap 資源與 runtime 資源分離，destroy runtime 時不會誤刪 OIDC、IAM role 或 ECR image history。
+- 效能效率（Performance Efficiency）：workflow 會偵測受影響的 lab，只執行必要的 CI/CD job，減少不必要的 build 與 Terraform plan。EC2 與 ECS 兩種 runtime 使用相同容器 artifact，讓比較與調整部署目標更容易。
+- 成本最佳化（Cost Optimization）：真正的 AWS provisioning 必須手動核准，降低誤觸部署產生成本的風險。destroy workflow 只移除 runtime infrastructure，讓短期 lab 資源可以快速清理，同時保留可重用的 bootstrap artifact。
+- 永續性（Sustainability）：只針對變更的 lab 執行 pipeline、重用已存在的 ECR image、並支援銷毀閒置 runtime 資源，減少重複運算與閒置雲端資源造成的浪費。
+
 ## 後果
 
 - 優點：GitHub 中沒有長期有效的 AWS secret。
