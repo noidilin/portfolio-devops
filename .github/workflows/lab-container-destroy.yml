@@ -47,6 +47,8 @@ jobs:
     environment: ${{ needs.select-lab.outputs.environment }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@v4
         with:
           working_directory: ${{ needs.select-lab.outputs.path }}
