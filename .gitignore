@@ -7,6 +7,9 @@
 .DS_Store
 tmp/
 
+# Local account notes with personal cloud identifiers.
+infra/gcp-bootstrap-info.md
+
 node_modules/
 
 .terraform/
