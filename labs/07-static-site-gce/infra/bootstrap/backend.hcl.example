@@ -1,0 +1,5 @@
+# Copy to backend.hcl and replace placeholders with the shared GCP bootstrap outputs.
+# Do not commit backend.hcl; it is intentionally account-specific.
+
+bucket = "your-existing-gcp-project-id-tf-state"
+prefix = "gcp/bootstrap/labs/07-static-site-gce"

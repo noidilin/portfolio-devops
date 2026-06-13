@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars and replace placeholders with shared bootstrap outputs.
+# Do not commit terraform.tfvars; it is intentionally account-specific.
+
+gcp_project_id             = "your-existing-gcp-project-id"
+gcp_project_number         = "000000000000"
+gcp_region                 = "asia-northeast1"
+terraform_state_bucket_name = "your-existing-gcp-project-id-tf-state"
+
+github_repository        = "OWNER/REPO"
+github_wif_pool_name    = "projects/000000000000/locations/global/workloadIdentityPools/github-actions"
+github_wif_provider_name = "projects/000000000000/locations/global/workloadIdentityPools/github-actions/providers/github"
+
+aws_region         = "ap-northeast-1"
+environment        = "stage"
+project_name       = "static-site-gce"
+service_name       = "cidr-calculator"
+github_environment = "lab-07-stage"
+
+artifact_registry_keep_count        = 20
+artifact_registry_delete_older_than = "2592000s"
+
+aws_tags = {}
+
+gcp_labels = {}

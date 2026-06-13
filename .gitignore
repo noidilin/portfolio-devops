@@ -18,5 +18,7 @@ node_modules/
 *.tfstate
 *.tfstate.*
 *.tfvars
+backend.hcl
+!backend.hcl.example
 *.tfplan
 db-key.auto.tfvars
