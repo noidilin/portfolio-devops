@@ -44,10 +44,56 @@ resource "aws_ecr_lifecycle_policy" "service" {
   })
 }
 
+resource "aws_iam_role" "github_plan" {
+  name                 = "${local.name_prefix}-github-plan"
+  permissions_boundary = local.permissions_boundary_arn
+  assume_role_policy   = data.aws_iam_policy_document.github_plan_assume_role.json
+
+  tags = local.aws_tags
+}
+
 resource "aws_iam_role" "github_image_push" {
   name                 = "${local.name_prefix}-github-image-push"
   permissions_boundary = local.permissions_boundary_arn
   assume_role_policy   = data.aws_iam_policy_document.github_image_push_assume_role.json
+
+  tags = local.aws_tags
+}
+
+resource "aws_iam_policy" "github_plan" {
+  name        = "${local.name_prefix}-github-plan"
+  description = "Read-only AWS permissions for ${local.ecr_repository_name} bootstrap plans."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "AllowEcrRead"
+        Effect   = "Allow"
+        Action   = ["ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:GetLifecyclePolicy", "ecr:ListTagsForResource"]
+        Resource = aws_ecr_repository.service.arn
+      },
+      {
+        Sid    = "AllowBootstrapIamRead"
+        Effect = "Allow"
+        Action = [
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:GetRole",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListPolicyTags",
+          "iam:ListPolicyVersions",
+          "iam:ListRolePolicies",
+          "iam:ListRoleTags"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.name_prefix}-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.name_prefix}-*",
+          local.permissions_boundary_arn
+        ]
+      }
+    ]
+  })
 
   tags = local.aws_tags
 }
@@ -85,6 +131,11 @@ resource "aws_iam_policy" "github_image_push" {
   })
 
   tags = local.aws_tags
+}
+
+resource "aws_iam_role_policy_attachment" "github_plan" {
+  role       = aws_iam_role.github_plan.name
+  policy_arn = aws_iam_policy.github_plan.arn
 }
 
 resource "aws_iam_role_policy_attachment" "github_image_push" {

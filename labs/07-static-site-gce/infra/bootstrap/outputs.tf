@@ -13,6 +13,11 @@ output "ecr_repository_url" {
   value       = aws_ecr_repository.service.repository_url
 }
 
+output "github_plan_role_arn" {
+  description = "GitHub Actions OIDC role ARN for ECR-aware PR/main Terraform plans."
+  value       = aws_iam_role.github_plan.arn
+}
+
 output "github_image_push_role_arn" {
   description = "GitHub Actions OIDC role ARN for pushing immutable canonical images to ECR from main."
   value       = aws_iam_role.github_image_push.arn
