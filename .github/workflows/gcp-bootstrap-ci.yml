@@ -133,5 +133,8 @@ jobs:
           terraform validate
           terraform test
           # Plan only: proves GCP WIF + AWS OIDC provider access without apply,
-          # destroy, runtime deployment, or long-lived cloud secrets.
-          terraform plan -input=false -lock=false -no-color -out=bootstrap.tfplan
+          # destroy, runtime deployment, or long-lived cloud secrets. Avoid
+          # refresh here because bootstrap PRs can add read permissions to the
+          # same plan identity that is running this check; a refresh would fail
+          # before Terraform can show the custom-role diff.
+          terraform plan -refresh=false -input=false -lock=false -no-color -out=bootstrap.tfplan

@@ -23,8 +23,8 @@ Durable bootstrap resources for the future GCE static-site runtime lab. Runtime 
 ```sh
 cd labs/07-static-site-gce/infra/bootstrap
 cp backend.hcl.example backend.hcl
-cp terraform.tfvars.example terraform.tfvars
-$EDITOR backend.hcl terraform.tfvars
+cp bootstrap.auto.tfvars.example bootstrap.auto.tfvars
+$EDITOR backend.hcl bootstrap.auto.tfvars
 ```
 
 Committed examples use placeholders only. Keep real project/account values in ignored local files.
@@ -36,6 +36,6 @@ terraform init -backend-config=backend.hcl
 terraform fmt -check -recursive
 terraform validate
 terraform test
-terraform plan -var-file=terraform.tfvars
-terraform apply -var-file=terraform.tfvars
+terraform plan
+terraform apply
 ```

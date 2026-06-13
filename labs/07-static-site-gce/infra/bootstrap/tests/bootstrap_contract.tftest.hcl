@@ -65,6 +65,11 @@ run "lab07_bootstrap_contract" {
   }
 
   assert {
+    condition     = contains(google_project_iam_custom_role.plan.permissions, "storage.buckets.getIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "storage.buckets.getIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "storage.buckets.setIamPolicy")
+    error_message = "Plan/apply identities need bucket IAM read access for Terraform refresh, and apply needs setIamPolicy to manage state bucket IAM members."
+  }
+
+  assert {
     condition     = output.artifact_registry_image_base == "asia-northeast1-docker.pkg.dev/example-devops-labs/devops-static-site-gce-stage-cidr-calculator/cidr-calculator" && output.github_wif_provider_name == "projects/123456789012/locations/global/workloadIdentityPools/github-actions/providers/github"
     error_message = "Outputs should expose image base and shared WIF provider references for future workflows."
   }
