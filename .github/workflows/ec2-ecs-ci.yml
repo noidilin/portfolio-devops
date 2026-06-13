@@ -42,7 +42,10 @@ jobs:
             include_05=true
             include_06=true
           fi
-          if grep -q '^apps/cidr-calculator/' <<<"$CHANGED"; then include_05=true; fi
+          if grep -q '^apps/cidr-calculator/' <<<"$CHANGED"; then
+            include_05=true
+            include_06=true
+          fi
           if grep -q '^labs/05-static-site-ec2/' <<<"$CHANGED"; then include_05=true; fi
           if grep -q '^labs/06-static-site-ecs/' <<<"$CHANGED"; then include_06=true; fi
 
@@ -60,9 +63,9 @@ jobs:
           if (process.env.INCLUDE_06 === 'true') labs.push({
             id: '06-static-site-ecs',
             path: 'labs/06-static-site-ecs',
-            app_path: 'labs/06-static-site-ecs/app',
-            app_toolchain_path: 'labs/06-static-site-ecs',
-            build_context: 'labs/06-static-site-ecs',
+            app_path: 'apps/cidr-calculator',
+            app_toolchain_path: 'apps/cidr-calculator',
+            build_context: 'apps/cidr-calculator',
             port: 8091,
             plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan'
           });
