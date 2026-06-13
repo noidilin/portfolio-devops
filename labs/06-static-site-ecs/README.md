@@ -2,41 +2,74 @@
 
 Terraform tracer bullet for migrating the Lab 05 EC2 Docker runtime to Amazon ECS Express Mode.
 
-The lab builds the same client-side IPv4 CIDR calculator SPA, packages it as a static Nginx site in Docker, pushes the image to Amazon ECR, and uses Terraform to deploy the container with `aws_ecs_express_gateway_service`.
+The lab deploys the shared CIDR Calculator static-site container to ECS Express Mode. The shared app under `../../apps/cidr-calculator/` owns the React/Vite SPA, package metadata, Dockerfile, and Nginx runtime config. This lab owns only the ECS runtime infrastructure, ECR repository boundary, and Terraform stage that deploys an explicit image tag.
 
 ECS Express Mode manages the Fargate service, HTTPS endpoint, load balancer, target groups, security groups, deployment flow, auto scaling, and CloudWatch integration.
 
 ## Local SPA development
 
+Do application development from the shared app boundary:
+
 ```sh
-cd app
+cd ../../apps/cidr-calculator
+mise install
 pnpm install
-pnpm dev
+pnpm dev           # starts Vite dev server with hot reload
 ```
 
-Production build and tests:
+The dev server runs on `http://localhost:5173` by default. Enter an IPv4 CIDR like `192.168.1.0/24` to see derived subnet properties (network address, broadcast, mask, host range, host count, binary representation).
+
+### Production build
 
 ```sh
-cd app
-pnpm build
-pnpm test
+cd ../../apps/cidr-calculator
+pnpm build         # outputs static assets to apps/cidr-calculator/dist/
+pnpm preview       # serves the production build locally for review
+```
+
+The build produces static HTML, JS, and CSS — no Node server needed at runtime.
+
+### Unit tests
+
+```sh
+cd ../../apps/cidr-calculator
+pnpm test          # runs vitest against the CIDR calculation module
 ```
 
 ## Docker build and local smoke test
 
-Build from the lab root:
+Build the Docker image from the shared app build context:
 
 ```sh
-cd /path/to/labs/06-static-site-ecs
+cd ../../apps/cidr-calculator
 docker build -t cidr-calculator:v1 .
 ```
 
-Run locally:
+Run the container locally and verify it serves the SPA:
 
 ```sh
 docker run --rm -p 8090:80 cidr-calculator:v1
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8090
-# expected: 200
+```
+
+Smoke test:
+
+```sh
+curl -fsS http://localhost:8090 | grep -F "CIDR Calculator"
+```
+
+Open `http://localhost:8090` in a browser to confirm the CIDR calculator loads.
+
+The Docker image uses a multi-stage build: Node builds the SPA, then Nginx serves the static output on port 80. The shared Nginx config lives at `../../apps/cidr-calculator/nginx/default.conf` and handles SPA routing via `try_files` plus cache headers on static assets.
+
+### Package scripts shortcut
+
+The shared app `package.json` also provides:
+
+```sh
+cd ../../apps/cidr-calculator
+pnpm docker:build   # docker build -t cidr-calc .
+pnpm docker:run     # docker run --rm -p 8090:80 cidr-calc
+pnpm docker:stop    # stops the cidr-calc container
 ```
 
 ## Infrastructure
@@ -52,19 +85,7 @@ The stage root expects a bootstrapped ECR repository and provisions:
 - an ECS Express Gateway service using the ECR image tag you provide
 - outputs for image push commands, service inspection, logs, and HTTPS access
 
-## CI/CD workflow
-
-This lab has GitHub Actions support for PR checks, manual approved deploys, and manual approved destroys. Bootstrap resources live outside the disposable runtime:
-
-- shared OIDC provider: `infra/account-bootstrap/github-oidc-provider/`
-- lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
-- runtime: `infra/stage/` (ECS Express service only)
-
-Create GitHub Environment `lab-06-stage` with required reviewers before using deploy/destroy. Dispatch `Lab container deploy` from `main`, choose `06-static-site-ecs`, approve the environment gate, and the workflow deploys image tag `sha-${GITHUB_SHA}`. Dispatch `Lab container destroy` to destroy only the ECS runtime; ECR, OIDC, roles, and image history remain.
-
-See [`../../docs/container-cicd-ec2-ecs.md`](../../docs/container-cicd-ec2-ecs.md) for the full runbook.
-
-## Backend and variables pattern
+### Backend and variables pattern
 
 ```sh
 cd infra/stage
@@ -80,6 +101,41 @@ cd infra/stage
 terraform init -backend=false
 terraform validate
 ```
+
+### Preview and apply
+
+Preview changes:
+
+```sh
+cd infra/stage
+terraform fmt -recursive ../..
+terraform validate
+terraform plan
+```
+
+Create infrastructure:
+
+```sh
+terraform apply
+```
+
+Inspect useful commands/URLs:
+
+```sh
+terraform output
+```
+
+## CI/CD workflow
+
+This lab has GitHub Actions support for PR checks, main/manual approved deploys, and manual approved destroys. Bootstrap resources live outside the disposable runtime:
+
+- shared OIDC provider: `infra/account-bootstrap/github-oidc-provider/`
+- lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
+- runtime: `infra/stage/` (ECS Express service only)
+
+Create GitHub Environment `lab-06-stage` with required reviewers before using deploy/destroy. The CI and deploy workflows run app lint/test/build plus Docker local smoke tests from `apps/cidr-calculator`, then tag/push the resulting image to this lab's existing ECR repository as `sha-${GITHUB_SHA}`. Dispatch `Lab container deploy` from `main`, choose `06-static-site-ecs`, approve the environment gate, and the workflow applies only `infra/stage` with that image tag. Shared app changes on `main` select the approved deployment paths for both Lab 05 and Lab 06. Dispatch `Lab container destroy` to destroy only the ECS runtime; ECR, OIDC, roles, and image history remain.
+
+See [`../../docs/capstone/cicd-for-ec2-ecs-static-site.md`](../../docs/capstone/cicd-for-ec2-ecs-static-site.md) for the full runbook.
 
 ## Deploy a pushed image tag
 
@@ -103,15 +159,22 @@ aws ecr get-login-password --region ap-northeast-1 \
   | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 ```
 
-### Step 3: build, tag, and push
+### Step 3: build the shared app image, tag it for Lab 06 ECR, and push
 
-From the lab root:
+From the shared app root:
 
 ```sh
-cd /path/to/labs/06-static-site-ecs
+cd /path/to/apps/cidr-calculator
 docker build -t cidr-calculator:v1 .
 docker tag cidr-calculator:v1 "$ECR_REPOSITORY_URL:v1"
 docker push "$ECR_REPOSITORY_URL:v1"
+```
+
+You can also get ready-to-run commands from Terraform. Run them from `labs/06-static-site-ecs/infra/stage`; the generated Docker build command points back to the shared app context:
+
+```sh
+cd /path/to/labs/06-static-site-ecs/infra/stage
+terraform output docker_build_tag_push_commands
 ```
 
 ### Step 4: apply ECS Express service
@@ -160,8 +223,6 @@ CloudWatch logs receive the Nginx container stdout/stderr stream.
 | Security group on instance port 80 | Express Mode-managed load balancer and networking |
 | Instance replacement on image tag change | Express service revision deployment |
 | SSM Session Manager for host inspection | ECS service inspection and CloudWatch logs |
-
-See `MIGRATION_DESIGN.md` for the full migration design, rollback plan, and validation checklist.
 
 ## Teardown
 
