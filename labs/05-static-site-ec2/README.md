@@ -2,16 +2,15 @@
 
 Terraform tracer bullet for a single EC2-hosted Docker service runtime path.
 
-The lab builds a client-side IPv4 CIDR calculator SPA, packages it as a static Nginx site in Docker, pushes the image to Amazon ECR, and uses Terraform to provision a single EC2 instance that pulls and runs the image at boot.
+The lab deploys the shared CIDR Calculator static-site container to Amazon EC2. The shared app under `../../apps/cidr-calculator/` owns the React/Vite SPA, package metadata, Dockerfile, and Nginx runtime config. This lab owns only the EC2 runtime infrastructure, ECR repository boundary, and Terraform stage that pulls an explicit image tag at boot.
 
 ## Local SPA development
 
-The application lives under `app/`. It is a React TypeScript SPA built with Vite, Tailwind CSS, and shadcn-style components.
-
-Prerequisites: Node 24 and pnpm (managed by `mise` via `mise.toml` in the lab root).
+Do application development from the shared app boundary:
 
 ```sh
-cd app
+cd ../../apps/cidr-calculator
+mise install
 pnpm install
 pnpm dev           # starts Vite dev server with hot reload
 ```
@@ -21,8 +20,8 @@ The dev server runs on `http://localhost:5173` by default. Enter an IPv4 CIDR li
 ### Production build
 
 ```sh
-cd app
-pnpm build         # outputs static assets to app/dist/
+cd ../../apps/cidr-calculator
+pnpm build         # outputs static assets to apps/cidr-calculator/dist/
 pnpm preview       # serves the production build locally for review
 ```
 
@@ -31,16 +30,16 @@ The build produces static HTML, JS, and CSS — no Node server needed at runtime
 ### Unit tests
 
 ```sh
-cd app
+cd ../../apps/cidr-calculator
 pnpm test          # runs vitest against the CIDR calculation module
 ```
 
 ## Docker build and local smoke test
 
-Build the Docker image from the lab root (the Dockerfile context is the lab root):
+Build the Docker image from the shared app build context:
 
 ```sh
-cd /path/to/labs/05-static-site-ec2
+cd ../../apps/cidr-calculator
 docker build -t cidr-calculator:v1 .
 ```
 
@@ -53,21 +52,20 @@ docker run --rm -p 8090:80 cidr-calculator:v1
 Smoke test:
 
 ```sh
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8090
-# expected: 200
+curl -fsS http://localhost:8090 | grep -F "CIDR Calculator"
 ```
 
 Open `http://localhost:8090` in a browser to confirm the CIDR calculator loads.
 
-The Docker image uses a multi-stage build: Node builds the SPA, then Nginx serves the static output on port 80. Nginx config is at `nginx/default.conf` — it handles SPA routing via `try_files` and sets cache headers on static assets.
+The Docker image uses a multi-stage build: Node builds the SPA, then Nginx serves the static output on port 80. The shared Nginx config lives at `../../apps/cidr-calculator/nginx/default.conf` and handles SPA routing via `try_files` plus cache headers on static assets.
 
 ### Package scripts shortcut
 
-The app `package.json` also provides:
+The shared app `package.json` also provides:
 
 ```sh
-cd app
-pnpm docker:build   # docker build -t cidr-calc ..
+cd ../../apps/cidr-calculator
+pnpm docker:build   # docker build -t cidr-calc .
 pnpm docker:run     # docker run --rm -p 8090:80 cidr-calc
 pnpm docker:stop    # stops the cidr-calc container
 ```
@@ -136,9 +134,9 @@ This lab has GitHub Actions support for PR checks, manual approved deploys, and 
 - lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
 - runtime: `infra/stage/` (EC2 host only)
 
-Create GitHub Environment `lab-05-stage` with required reviewers before using deploy/destroy. Dispatch `Lab container deploy` from `main`, choose `05-static-site-ec2`, approve the environment gate, and the workflow deploys image tag `sha-${GITHUB_SHA}`. Dispatch `Lab container destroy` to destroy only the EC2 runtime; ECR, OIDC, roles, and image history remain.
+Create GitHub Environment `lab-05-stage` with required reviewers before using deploy/destroy. The CI and deploy workflows run app lint/test/build plus Docker local smoke tests from `apps/cidr-calculator`, then tag/push the resulting image to this lab's existing ECR repository as `sha-${GITHUB_SHA}`. Dispatch `Lab container deploy` from `main`, choose `05-static-site-ec2`, approve the environment gate, and the workflow applies only `infra/stage` with that image tag. Dispatch `Lab container destroy` to destroy only the EC2 runtime; ECR, OIDC, roles, and image history remain.
 
-See [`../../docs/container-cicd-ec2-ecs.md`](../../docs/container-cicd-ec2-ecs.md) for the full runbook.
+See [`../../docs/capstone/cicd-for-ec2-ecs-static-site.md`](../../docs/capstone/cicd-for-ec2-ecs-static-site.md) for the full runbook.
 
 ## Deploy a pushed image tag
 
@@ -163,21 +161,21 @@ aws ecr get-login-password --region ap-northeast-1 \
 
 This uses your local AWS credentials (SSO profile, IAM Identity Center, or whatever is in your credential chain) to obtain a short-lived ECR registry password. Docker stores it for the registry host.
 
-### Step 3: build, tag, and push
+### Step 3: build the shared app image, tag it for Lab 05 ECR, and push
 
-From the lab root:
+From the shared app root:
 
 ```sh
-cd /path/to/labs/05-static-site-ec2
+cd /path/to/apps/cidr-calculator
 docker build -t cidr-calculator:v1 .
 docker tag cidr-calculator:v1 "$ECR_REPOSITORY_URL:v1"
 docker push "$ECR_REPOSITORY_URL:v1"
 ```
 
-You can also get ready-to-run commands from Terraform:
+You can also get ready-to-run commands from Terraform. Run them from `labs/05-static-site-ec2/infra/stage`; the generated Docker build command points back to the shared app context:
 
 ```sh
-cd infra/stage
+cd /path/to/labs/05-static-site-ec2/infra/stage
 terraform output docker_build_tag_push_commands
 ```
 
@@ -218,13 +216,13 @@ same value is passed into Terraform.
 For example, if GitHub Actions pushes:
 
 ```text
-cidr-calculator:${GITHUB_SHA}
+cidr-calculator:sha-${GITHUB_SHA}
 ```
 
 then a Terraform run outside that pipeline must receive the same tag explicitly:
 
 ```sh
-terraform apply -var="image_tag=<github-sha>"
+terraform apply -var="image_tag=sha-<github-sha>"
 ```
 
 Terraform should not try to derive the tag by running `git rev-parse HEAD`: the

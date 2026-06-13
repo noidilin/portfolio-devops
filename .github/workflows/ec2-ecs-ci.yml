@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "apps/cidr-calculator/**"
       - "labs/05-static-site-ec2/**"
       - "labs/06-static-site-ecs/**"
       - "infra/account-bootstrap/**"
@@ -41,6 +42,7 @@ jobs:
             include_05=true
             include_06=true
           fi
+          if grep -q '^apps/cidr-calculator/' <<<"$CHANGED"; then include_05=true; fi
           if grep -q '^labs/05-static-site-ec2/' <<<"$CHANGED"; then include_05=true; fi
           if grep -q '^labs/06-static-site-ecs/' <<<"$CHANGED"; then include_06=true; fi
 
@@ -49,12 +51,18 @@ jobs:
           if (process.env.INCLUDE_05 === 'true') labs.push({
             id: '05-static-site-ec2',
             path: 'labs/05-static-site-ec2',
+            app_path: 'apps/cidr-calculator',
+            app_toolchain_path: 'apps/cidr-calculator',
+            build_context: 'apps/cidr-calculator',
             port: 8090,
             plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan'
           });
           if (process.env.INCLUDE_06 === 'true') labs.push({
             id: '06-static-site-ecs',
             path: 'labs/06-static-site-ecs',
+            app_path: 'labs/06-static-site-ecs/app',
+            app_toolchain_path: 'labs/06-static-site-ecs',
+            build_context: 'labs/06-static-site-ecs',
             port: 8091,
             plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan'
           });
@@ -76,18 +84,19 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v4
+      - name: Install app toolchain
+        uses: jdx/mise-action@v4
         with:
-          working_directory: ${{ matrix.lab.path }}
+          working_directory: ${{ matrix.lab.app_toolchain_path }}
       - name: App checks
-        working-directory: ${{ matrix.lab.path }}/app
+        working-directory: ${{ matrix.lab.app_path }}
         run: |
           pnpm install --frozen-lockfile
           pnpm lint
           pnpm test
           pnpm build
       - name: Docker build and local smoke
-        working-directory: ${{ matrix.lab.path }}
+        working-directory: ${{ matrix.lab.build_context }}
         shell: bash
         run: |
           set -euo pipefail
@@ -104,6 +113,10 @@ jobs:
           done
           docker logs "$NAME"
           exit 1
+      - name: Install lab infrastructure toolchain
+        uses: jdx/mise-action@v4
+        with:
+          working_directory: ${{ matrix.lab.path }}
       - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ matrix.lab.plan_role_arn }}
