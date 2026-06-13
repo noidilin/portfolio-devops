@@ -48,7 +48,7 @@ docker build -t cidr-calculator:v1 .
 Run the container locally and verify it serves the SPA:
 
 ```sh
-docker run --rm -p 8090:80 cidr-calculator:v1
+docker run --rm -d --name cidr-calculator -p 8090:80 cidr-calculator:v1
 ```
 
 Smoke test:
@@ -57,7 +57,11 @@ Smoke test:
 curl -fsS http://localhost:8090 | grep -F "CIDR Calculator"
 ```
 
-Open `http://localhost:8090` in a browser to confirm the CIDR calculator loads.
+Open `http://localhost:8090` in a browser to confirm the CIDR calculator loads. Stop the local smoke-test container when finished:
+
+```sh
+docker stop cidr-calculator
+```
 
 The Docker image uses a multi-stage build: Node builds the SPA, then Nginx serves the static output on port 80. The shared Nginx config lives at `../../apps/cidr-calculator/nginx/default.conf` and handles SPA routing via `try_files` plus cache headers on static assets.
 
@@ -133,7 +137,7 @@ This lab has GitHub Actions support for PR checks, main/manual approved deploys,
 - lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
 - runtime: `infra/stage/` (ECS Express service only)
 
-Create GitHub Environment `lab-06-stage` with required reviewers before using deploy/destroy. The CI and deploy workflows run app lint/test/build plus Docker local smoke tests from `apps/cidr-calculator`, then tag/push the resulting image to this lab's existing ECR repository as `sha-${GITHUB_SHA}`. Dispatch `Lab container deploy` from `main`, choose `06-static-site-ecs`, approve the environment gate, and the workflow applies only `infra/stage` with that image tag. Shared app changes on `main` select the approved deployment paths for both Lab 05 and Lab 06. Dispatch `Lab container destroy` to destroy only the ECS runtime; ECR, OIDC, roles, and image history remain.
+Create GitHub Environment `lab-06-stage` with required reviewers before using deploy/destroy. The PR-check CI workflow runs app lint/test/build, a Docker local smoke test from `apps/cidr-calculator`, and a Terraform plan; it does not push images to ECR. The deploy workflow reruns the checks, pushes or reuses this lab's ECR image as `sha-${GITHUB_SHA}`, then applies only `infra/stage` with that image tag after environment approval. Dispatch `Lab container deploy` from `main`, choose `06-static-site-ecs`, and approve the environment gate. Shared app changes on `main` select the approved deployment paths for both Lab 05 and Lab 06. Dispatch `Lab container destroy` to destroy only the ECS runtime; ECR, OIDC, roles, and image history remain.
 
 See [`../../docs/capstone/cicd-for-ec2-ecs-static-site.md`](../../docs/capstone/cicd-for-ec2-ecs-static-site.md) for the full runbook.
 
