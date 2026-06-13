@@ -11,21 +11,69 @@ override_data {
 override_data {
   target = data.aws_iam_policy_document.github_plan_assume_role
   values = {
-    json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    json = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = [
+              "repo:OWNER/REPO:pull_request",
+              "repo:OWNER/REPO:ref:refs/heads/main",
+            ]
+          }
+        }
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        }
+      }]
+    })
   }
 }
 
 override_data {
   target = data.aws_iam_policy_document.github_image_push_assume_role
   values = {
-    json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    json = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:OWNER/REPO:ref:refs/heads/main"
+          }
+        }
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        }
+      }]
+    })
   }
 }
 
 override_data {
   target = data.aws_iam_policy_document.github_apply_assume_role
   values = {
-    json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    json = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:OWNER/REPO:environment:lab-08-stage"
+          }
+        }
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        }
+      }]
+    })
   }
 }
 
@@ -74,8 +122,23 @@ run "lab08_bootstrap_contract" {
   }
 
   assert {
-    condition     = google_project_iam_custom_role.plan.role_id == "lab08CloudRunPlan" && google_project_iam_custom_role.apply.role_id == "lab08CloudRunApply"
+    condition     = google_project_iam_custom_role.plan.role_id == "lab08CloudRunPlan" && google_project_iam_custom_role.apply.role_id == "lab08CloudRunApply" && google_project_iam_custom_role.bootstrap_admin.role_id == "lab08CloudRunBootstrapAdmin"
     error_message = "Lab 08 must use pragmatic custom roles instead of Editor-like roles."
+  }
+
+  assert {
+    condition     = !contains(google_project_iam_custom_role.apply.permissions, "iam.roles.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.setIamPolicy") && !contains(google_project_iam_custom_role.apply.permissions, "resourcemanager.projects.setIamPolicy")
+    error_message = "The durable Lab 08 apply role must not retain project/IAM bootstrap-admin permissions."
+  }
+
+  assert {
+    condition     = contains(google_project_iam_custom_role.bootstrap_admin.permissions, "iam.roles.create") && contains(google_project_iam_custom_role.bootstrap_admin.permissions, "iam.serviceAccounts.create") && contains(google_project_iam_custom_role.bootstrap_admin.permissions, "resourcemanager.projects.setIamPolicy")
+    error_message = "One-time bootstrap-admin permissions should be isolated from the durable apply role."
+  }
+
+  assert {
+    condition     = strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "token.actions.githubusercontent.com:aud") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "sts.amazonaws.com") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:pull_request") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_image_push_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_apply_assume_role.json, "repo:OWNER/REPO:environment:lab-08-stage")
+    error_message = "AWS OIDC trust policies must stay scoped to PR/main for plan/push and protected environment for apply."
   }
 
   assert {
