@@ -1,0 +1,192 @@
+resource "aws_ecr_repository" "service" {
+  name                 = local.ecr_repository_name
+  image_tag_mutability = "IMMUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+
+  tags = local.aws_tags
+}
+
+resource "aws_ecr_lifecycle_policy" "service" {
+  repository = aws_ecr_repository.service.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep the most recent 20 SHA-tagged images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["sha-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 20
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 2
+        description  = "Expire untagged images after one day"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 1
+        }
+        action = { type = "expire" }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "github_image_push" {
+  name                 = "${local.name_prefix}-github-image-push"
+  permissions_boundary = local.permissions_boundary_arn
+  assume_role_policy   = data.aws_iam_policy_document.github_image_push_assume_role.json
+
+  tags = local.aws_tags
+}
+
+resource "aws_iam_policy" "github_image_push" {
+  name        = "${local.name_prefix}-github-image-push"
+  description = "ECR push permissions for ${local.ecr_repository_name}."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "AllowEcrAuthToken"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowRepositoryPush"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart"
+        ]
+        Resource = aws_ecr_repository.service.arn
+      }
+    ]
+  })
+
+  tags = local.aws_tags
+}
+
+resource "aws_iam_role_policy_attachment" "github_image_push" {
+  role       = aws_iam_role.github_image_push.name
+  policy_arn = aws_iam_policy.github_image_push.arn
+}
+
+resource "google_artifact_registry_repository" "mirror" {
+  project       = var.gcp_project_id
+  location      = var.gcp_region
+  repository_id = local.artifact_repository_id
+  description   = "GCP mirror for ${aws_ecr_repository.service.name}."
+  format        = "DOCKER"
+  labels        = local.gcp_labels
+
+  cleanup_policies {
+    id     = "delete-old-sha-tags"
+    action = "DELETE"
+
+    condition {
+      tag_state    = "TAGGED"
+      tag_prefixes = ["sha-"]
+      older_than   = var.artifact_registry_delete_older_than
+    }
+  }
+
+  cleanup_policies {
+    id     = "keep-recent-versions"
+    action = "KEEP"
+
+    most_recent_versions {
+      keep_count = var.artifact_registry_keep_count
+    }
+  }
+}
+
+resource "google_service_account" "plan" {
+  project      = var.gcp_project_id
+  account_id   = local.plan_service_account_id
+  display_name = "Lab 07 GCE Terraform plan"
+  description  = "Read-oriented planning identity for Lab 07 GCE bootstrap and runtime Terraform."
+}
+
+resource "google_service_account" "apply" {
+  project      = var.gcp_project_id
+  account_id   = local.apply_service_account_id
+  display_name = "Lab 07 GCE Terraform apply"
+  description  = "Approved apply/destroy identity for Lab 07 GCE bootstrap and runtime Terraform."
+}
+
+resource "google_project_iam_custom_role" "plan" {
+  project     = var.gcp_project_id
+  role_id     = local.plan_role_id
+  title       = "Lab 07 GCE Terraform plan"
+  description = "Pragmatic read permissions for Lab 07 GCE bootstrap/runtime Terraform plans."
+  stage       = "GA"
+
+  permissions = local.plan_permissions
+}
+
+resource "google_project_iam_custom_role" "apply" {
+  project     = var.gcp_project_id
+  role_id     = local.apply_role_id
+  title       = "Lab 07 GCE Terraform apply"
+  description = "Pragmatic mutation permissions for Lab 07 GCE bootstrap/runtime Terraform applies."
+  stage       = "GA"
+
+  permissions = local.apply_permissions
+}
+
+resource "google_project_iam_member" "plan" {
+  project = var.gcp_project_id
+  role    = google_project_iam_custom_role.plan.name
+  member  = google_service_account.plan.member
+}
+
+resource "google_project_iam_member" "apply" {
+  project = var.gcp_project_id
+  role    = google_project_iam_custom_role.apply.name
+  member  = google_service_account.apply.member
+}
+
+resource "google_storage_bucket_iam_member" "plan_state" {
+  bucket = var.terraform_state_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = google_service_account.plan.member
+}
+
+resource "google_storage_bucket_iam_member" "apply_state" {
+  bucket = var.terraform_state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = google_service_account.apply.member
+}
+
+resource "google_service_account_iam_binding" "plan_wif" {
+  service_account_id = google_service_account.plan.name
+  role               = "roles/iam.workloadIdentityUser"
+  members            = local.plan_wif_members
+}
+
+resource "google_service_account_iam_binding" "apply_wif" {
+  service_account_id = google_service_account.apply.name
+  role               = "roles/iam.workloadIdentityUser"
+  members            = local.apply_wif_members
+}
