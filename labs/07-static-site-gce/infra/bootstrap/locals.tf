@@ -49,6 +49,7 @@ locals {
     "serviceusage.services.get",
     "serviceusage.services.list",
     "storage.buckets.get",
+    "storage.buckets.getIamPolicy",
     "storage.objects.get",
     "storage.objects.list",
   ]
@@ -87,6 +88,7 @@ locals {
     "iam.serviceAccounts.setIamPolicy",
     "iam.serviceAccounts.update",
     "resourcemanager.projects.setIamPolicy",
+    "storage.buckets.setIamPolicy",
     "storage.objects.create",
     "storage.objects.delete",
     "storage.objects.update",
