@@ -46,6 +46,8 @@ gcloud config set compute/zone asia-northeast1-a
 gcloud auth application-default set-quota-project YOUR_EXISTING_GCP_PROJECT_ID
 ```
 
+The Terraform provider also sets `billing_project` and `user_project_override` to the target project so APIs such as Cloud Billing Budgets do not accidentally use a stale ADC quota project.
+
 ## Configure
 
 ```sh

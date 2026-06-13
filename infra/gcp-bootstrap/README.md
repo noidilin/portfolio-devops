@@ -2,7 +2,7 @@
 
 This runbook is the operator handoff for the GCP foundation used by the future static-site GCE and Cloud Run labs. It assumes the GCP project already exists and is already linked to billing; Terraform manages resources inside that project, not project creation or billing-account linkage.
 
-Use placeholder values in committed files only. Put real project IDs, project numbers, billing account IDs, account numbers, service account emails, and local paths in ignored local files such as `terraform.tfvars`, `bootstrap.auto.tfvars`, and `backend.hcl`.
+Use placeholder values in committed files only. Put real project IDs, project numbers, billing account IDs, account numbers, service account emails, and local paths in ignored local files such as the shared root's `terraform.tfvars`, per-lab `bootstrap.auto.tfvars`, and `backend.hcl`.
 
 ## Bootstrap order
 
@@ -33,7 +33,7 @@ Use placeholder values in committed files only. Put real project IDs, project nu
    gcloud auth application-default set-quota-project YOUR_EXISTING_GCP_PROJECT_ID
    ```
 
-   The shared root intentionally uses user Application Default Credentials and local Terraform state because it creates the GCS bucket that every later GCP root uses for remote state. Do not create or download service account keys.
+   The shared root intentionally uses user Application Default Credentials and local Terraform state because it creates the GCS bucket that every later GCP root uses for remote state. Do not create or download service account keys. The Google provider is configured with `billing_project = var.project_id` and `user_project_override = true` so ADC quota/billing attribution goes to the bootstrapped project instead of any stale local quota project.
 
 3. **Apply shared project bootstrap**
    - Configure from placeholders:
@@ -60,14 +60,14 @@ Use placeholder values in committed files only. Put real project IDs, project nu
    ```sh
    cd labs/07-static-site-gce/infra/bootstrap
    cp backend.hcl.example backend.hcl
-   cp terraform.tfvars.example terraform.tfvars
-   $EDITOR backend.hcl terraform.tfvars
+   cp bootstrap.auto.tfvars.example bootstrap.auto.tfvars
+   $EDITOR backend.hcl bootstrap.auto.tfvars
    terraform init -backend-config=backend.hcl
    terraform fmt -check -recursive
    terraform validate
    terraform test
-   terraform plan -var-file=terraform.tfvars
-   terraform apply -var-file=terraform.tfvars
+   terraform plan
+   terraform apply
    terraform output
    ```
 
@@ -202,7 +202,7 @@ Run live checks only after local placeholder files are filled with real private 
 ```sh
 terraform -chdir=infra/gcp-bootstrap/shared-project plan -var-file=terraform.tfvars
 terraform -chdir=labs/07-static-site-gce/infra/bootstrap init -backend-config=backend.hcl
-terraform -chdir=labs/07-static-site-gce/infra/bootstrap plan -var-file=terraform.tfvars
+terraform -chdir=labs/07-static-site-gce/infra/bootstrap plan
 terraform -chdir=labs/08-static-site-cloud-run/infra/bootstrap init -backend-config=backend.hcl
 terraform -chdir=labs/08-static-site-cloud-run/infra/bootstrap plan
 ```
