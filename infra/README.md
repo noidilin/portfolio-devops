@@ -1,5 +1,13 @@
 # Shared infrastructure
 
+## `gcp-bootstrap/shared-project/`
+
+Bootstraps the shared foundation inside an already-created, billing-linked GCP project for future GCE and Cloud Run labs.
+
+This root intentionally uses local Terraform state as the first-run exception because it creates the shared GCS state bucket. Later GCP bootstrap and runtime roots should use that bucket with GCS remote state.
+
+It manages the minimal project APIs, the versioned state bucket, a monthly budget guardrail, a shared GitHub Workload Identity Federation pool/provider, and common labels. Copy `terraform.tfvars.example` to the ignored `terraform.tfvars` for account-specific values.
+
 ## `account-bootstrap/github-oidc-provider/`
 
 Creates the account-level IAM OpenID Connect provider for GitHub Actions:
