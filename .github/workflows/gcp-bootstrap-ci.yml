@@ -1,0 +1,137 @@
+name: gcp-bootstrap-ci
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/gcp-bootstrap/**"
+      - "labs/07-static-site-gce/infra/bootstrap/**"
+      - "labs/08-static-site-cloud-run/infra/bootstrap/**"
+      - ".github/workflows/gcp-bootstrap-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: gcp-bootstrap-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ap-northeast-1
+  GCP_PROJECT_ID: portfolio-devops-labs
+  GCP_PROJECT_NUMBER: "993692022673"
+  GCP_REGION: asia-northeast1
+  GCP_STATE_BUCKET: portfolio-devops-labs-tf-state
+  GCP_WIF_POOL_ID: github-actions
+  GCP_WIF_PROVIDER_ID: github
+  GCP_WIF_PROVIDER: projects/993692022673/locations/global/workloadIdentityPools/github-actions/providers/github
+  GITHUB_REPOSITORY_SLUG: noidilin/portfolio-devops
+
+jobs:
+  shared-bootstrap-static-checks:
+    name: Shared bootstrap fmt/validate/test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform fmt, validate, and tests
+        working-directory: infra/gcp-bootstrap/shared-project
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+          terraform test
+
+  per-lab-bootstrap-plan:
+    name: ${{ matrix.lab.id }} WIF auth and safe plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lab:
+          - id: 07-static-site-gce
+            path: labs/07-static-site-gce/infra/bootstrap
+            state_prefix: gcp/bootstrap/labs/07-static-site-gce
+            gcp_plan_service_account: devops-gce-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com
+            aws_plan_role_arn: arn:aws:iam::549475122024:role/devops-static-site-gce-stage-github-plan
+          - id: 08-static-site-cloud-run
+            path: labs/08-static-site-cloud-run/infra/bootstrap
+            state_prefix: gcp/bootstrap/labs/08-static-site-cloud-run
+            gcp_plan_service_account: lab-08-cloudrun-plan@portfolio-devops-labs.iam.gserviceaccount.com
+            aws_plan_role_arn: arn:aws:iam::549475122024:role/devops-static-site-cloud-run-stage-github-plan
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@v3
+
+      # GCP authority: exchange the GitHub OIDC token through Workload Identity
+      # Federation and impersonate the lab-specific GCP plan service account.
+      # No GCP service account key is downloaded, stored, or required.
+      - name: Authenticate to GCP through WIF plan identity
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ matrix.lab.gcp_plan_service_account }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      # AWS authority stays separate from GCP authority. ECR is canonical for
+      # images, so Terraform's AWS provider uses AWS OIDC/STS, not GCP creds.
+      - name: Authenticate to AWS through OIDC plan role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ matrix.lab.aws_plan_role_arn }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write CI backend and variable files
+        working-directory: ${{ matrix.lab.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket = "${GCP_STATE_BUCKET}"
+          prefix = "${{ matrix.lab.state_prefix }}"
+          EOF_BACKEND
+
+          if [ "${{ matrix.lab.id }}" = "07-static-site-gce" ]; then
+            cat > ci.auto.tfvars <<EOF_TFVARS
+          aws_region                  = "${AWS_REGION}"
+          gcp_project_id              = "${GCP_PROJECT_ID}"
+          gcp_project_number          = "${GCP_PROJECT_NUMBER}"
+          gcp_region                  = "${GCP_REGION}"
+          terraform_state_bucket_name = "${GCP_STATE_BUCKET}"
+          github_repository           = "${GITHUB_REPOSITORY_SLUG}"
+          github_wif_pool_name        = "projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WIF_POOL_ID}"
+          github_wif_provider_name    = "${GCP_WIF_PROVIDER}"
+          EOF_TFVARS
+          else
+            cat > ci.auto.tfvars <<EOF_TFVARS
+          aws_region             = "${AWS_REGION}"
+          gcp_project_id         = "${GCP_PROJECT_ID}"
+          gcp_region             = "${GCP_REGION}"
+          gcp_state_bucket_name  = "${GCP_STATE_BUCKET}"
+          github_repository      = "${GITHUB_REPOSITORY_SLUG}"
+          github_wif_pool_id     = "${GCP_WIF_POOL_ID}"
+          github_wif_provider_id = "${GCP_WIF_PROVIDER_ID}"
+          EOF_TFVARS
+          fi
+
+      - name: Terraform fmt, validate, test, and safe plan
+        working-directory: ${{ matrix.lab.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform init -backend-config=backend.hcl
+          terraform validate
+          terraform test
+          # Plan only: proves GCP WIF + AWS OIDC provider access without apply,
+          # destroy, runtime deployment, or long-lived cloud secrets.
+          terraform plan -input=false -lock=false -no-color -out=bootstrap.tfplan

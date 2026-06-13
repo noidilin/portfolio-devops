@@ -223,7 +223,7 @@ resource "aws_iam_role" "github_apply" {
 
 resource "aws_iam_policy" "github_plan" {
   name        = "${local.name_prefix}-github-plan"
-  description = "Read-only Terraform plan permissions for ${local.ecr_repository_name}."
+  description = "Read-only AWS permissions for ${local.ecr_repository_name} bootstrap plans."
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -233,6 +233,25 @@ resource "aws_iam_policy" "github_plan" {
         Effect   = "Allow"
         Action   = ["ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:GetLifecyclePolicy", "ecr:ListTagsForResource"]
         Resource = aws_ecr_repository.service.arn
+      },
+      {
+        Sid    = "AllowBootstrapIamRead"
+        Effect = "Allow"
+        Action = [
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:GetRole",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListPolicyTags",
+          "iam:ListPolicyVersions",
+          "iam:ListRolePolicies",
+          "iam:ListRoleTags"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.name_prefix}-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.name_prefix}-*",
+          local.permissions_boundary_arn
+        ]
       }
     ]
   })

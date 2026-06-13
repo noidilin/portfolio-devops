@@ -55,6 +55,11 @@ run "lab07_bootstrap_contract" {
   }
 
   assert {
+    condition     = aws_iam_role.github_plan.name == "devops-static-site-gce-stage-github-plan" && aws_iam_policy.github_plan.name == "devops-static-site-gce-stage-github-plan"
+    error_message = "Lab 07 should create an AWS OIDC plan role so CI can read ECR through AWS credentials instead of GCP credentials."
+  }
+
+  assert {
     condition     = contains(google_service_account_iam_binding.plan_wif.members, "principal://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/github-actions/subject/repo:OWNER/REPO:pull_request") && contains(google_service_account_iam_binding.apply_wif.members, "principal://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/github-actions/subject/repo:OWNER/REPO:environment:lab-07-stage")
     error_message = "GitHub WIF bindings should scope plan to PR/main contexts and apply to the protected Lab 07 environment."
   }
