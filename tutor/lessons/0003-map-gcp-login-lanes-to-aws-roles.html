@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson 0003 — Map GCP login lanes to your AWS roles</title>
+<style>
+  :root{--ink:#111827;--muted:#4b5563;--line:#e5e7eb;--blue:#2563eb;--green:#059669;--amber:#d97706;--red:#dc2626;--soft:#f8fafc}
+  body{font-family:ui-serif,Georgia,serif;color:var(--ink);line-height:1.58;max-width:900px;margin:42px auto;padding:0 24px;background:#fff}
+  h1,h2,h3{font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.15} h1{font-size:2.05rem;letter-spacing:-.03em} h2{margin-top:2.2rem;border-top:1px solid var(--line);padding-top:1.1rem} h3{margin-top:1.4rem}
+  p,li{font-size:1.04rem}.lede{font-size:1.18rem;color:#374151}.card{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0}.win{border-left:4px solid var(--green)}.warn{border-left:4px solid var(--amber)}.bad{border-left:4px solid var(--red)}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em} pre{background:#0b1020;color:#e5e7eb;border-radius:12px;padding:16px;overflow:auto}
+  table{border-collapse:collapse;width:100%;font-size:.94rem;margin:14px 0}th,td{border-bottom:1px solid var(--line);text-align:left;vertical-align:top;padding:10px}th{font-family:ui-sans-serif,system-ui,sans-serif;background:#f9fafb}
+  a{color:var(--blue)}button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;margin:4px;cursor:pointer}button:hover{border-color:var(--blue)}.feedback{font-family:ui-sans-serif,system-ui,sans-serif;margin-top:10px;font-weight:650}.small{color:var(--muted);font-size:.93rem}.lane{font-family:ui-sans-serif,system-ui,sans-serif;font-weight:750}.g{color:var(--green)}.b{color:var(--blue)}.a{color:var(--amber)}.r{color:var(--red)}
+  @media print{body{margin:18mm;max-width:none}.no-print,button{display:none}a{color:var(--ink);text-decoration:none}pre{background:#f8fafc;color:#111827;border:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<article>
+<h1>Map GCP login lanes to your AWS roles</h1>
+<p class="lede">Lesson 3 goal: repair the fuzzy part from Lesson 2 by mapping each GCP auth lane to your real AWS lab shapes: local <code>aws-sso</code>, GitHub OIDC provider, and GitHub Actions plan / image push / apply roles.</p>
+
+<div class="card win">
+<strong>Tangible win:</strong> after this lesson, you should be able to look at a command or workflow step and say: “this belongs to the <em>gcloud</em>, <em>ADC</em>, or <em>metadata</em> lane — and the GCP identity should be this user or service account.”
+</div>
+
+<h2>1. The three GCP lanes are caller lanes</h2>
+<p>Do not start with “which login command did I run?” Start with <strong>who is calling the Google API?</strong></p>
+<table>
+<thead><tr><th>GCP lane</th><th>Caller</th><th>AWS-ish memory hook</th><th>Your lab example</th></tr></thead>
+<tbody>
+<tr><td><span class="lane b">gcloud lane</span></td><td>You typing <code>gcloud ...</code></td><td>A terminal CLI session after <code>aws-sso</code> login.</td><td>Manual inspection: list projects, enable APIs, inspect IAM.</td></tr>
+<tr><td><span class="lane a">ADC lane</span></td><td>Terraform, client libraries, tools reading Google auth libraries</td><td>A provider/default credential chain, often ending in short-lived deploy identity.</td><td>Local Terraform, GitHub Terraform plan/apply, Docker helpers after auth setup.</td></tr>
+<tr><td><span class="lane g">Metadata lane</span></td><td>Code already running on GCE</td><td>EC2 instance profile credentials from metadata.</td><td>Your future GCE VM pulls from Artifact Registry or writes logs.</td></tr>
+</tbody></table>
+
+<h2>2. Local terminal: your <code>aws-sso</code> maps to two GCP stores</h2>
+<p>In AWS, your third-party <code>aws-sso</code> tool makes an IAM Identity Center session usable by AWS profiles. In GCP, split that habit:</p>
+<pre><code># Manual gcloud commands — gcloud lane
+
+gcloud auth login
+gcloud config set project PROJECT_ID
+gcloud auth list
+gcloud config list account project
+
+# Terraform / local app code — ADC lane
+
+gcloud auth application-default login \
+  --impersonate-service-account=tf-plan@PROJECT_ID.iam.gserviceaccount.com</code></pre>
+<p>Google recommends service account impersonation when you need a service account in development: you start from an authenticated user, then request short-lived credentials for the service account; this avoids persistent service account keys.<sup><a href="#sources">1</a></sup></p>
+
+<div class="card warn">
+<strong>Safe local pattern for this lab:</strong> your human account should be allowed to impersonate a small Terraform service account. That is the closest GCP match to “I enter locally through a controlled AWS deploy role,” but the command lives in the ADC lane when Terraform is the caller.
+</div>
+
+<h2>3. GitHub OIDC provider: not a lane, an entrance gate</h2>
+<p>Your AWS bootstrap has an account-level OIDC provider for <code>token.actions.githubusercontent.com</code>, then each role trust policy checks <code>aud</code> and <code>sub</code>:</p>
+<ul>
+<li><code>*-github-plan</code>: PRs and main.</li>
+<li><code>*-github-image-push</code>: main only.</li>
+<li><code>*-github-apply</code>: protected GitHub environment.</li>
+</ul>
+<p>In GCP, the equivalent entrance is a <strong>Workload Identity Pool Provider</strong>. It trusts GitHub OIDC, maps claims such as <code>assertion.sub</code>, <code>assertion.repository</code>, and <code>assertion.repository_owner</code>, then uses an <strong>attribute condition</strong> to reject unwanted tokens before they can impersonate anything.<sup><a href="#sources">2</a>, <a href="#sources">4</a></sup></p>
+
+<pre><code># Conceptual GCP equivalent of the AWS OIDC provider + trust filters
+issuer: https://token.actions.githubusercontent.com/
+attribute mapping:
+  google.subject = assertion.sub
+  attribute.repository = assertion.repository
+  attribute.repository_owner = assertion.repository_owner
+attribute condition:
+  assertion.repository_owner == "YOUR_ORG"
+  # tighten later: repository, ref, or environment</code></pre>
+
+<h2>4. GitHub plan / push / apply: use CI ADC via WIF</h2>
+<p>Once GitHub is admitted by Workload Identity Federation, GitHub Actions usually creates a short-lived credential file. Future steps — Terraform, gcloud, Docker auth helpers — consume it through environment variables such as <code>GOOGLE_APPLICATION_CREDENTIALS</code>. That makes CI mostly an <strong>ADC lane</strong> story.<sup><a href="#sources">2</a>, <a href="#sources">4</a></sup></p>
+
+<table>
+<thead><tr><th>AWS role today</th><th>GCP service account to design</th><th>Trust should allow</th><th>Permissions should feel like</th></tr></thead>
+<tbody>
+<tr><td><code>*-github-plan</code></td><td><code>tf-plan@PROJECT_ID.iam.gserviceaccount.com</code></td><td>PR and main subjects for this repo.</td><td>Read/list project resources, read Terraform state, take locks if needed.</td></tr>
+<tr><td><code>*-github-image-push</code></td><td><code>image-push@PROJECT_ID.iam.gserviceaccount.com</code></td><td>Main branch only.</td><td>Artifact Registry writer on the one repo; no Compute/IAM mutation.</td></tr>
+<tr><td><code>*-github-apply</code></td><td><code>tf-apply@PROJECT_ID.iam.gserviceaccount.com</code></td><td>Protected GitHub environment subject.</td><td>Create/update GCE, firewall, service accounts, IAM bindings only needed by the lab.</td></tr>
+</tbody></table>
+
+<div class="card bad">
+<strong>Important difference:</strong> AWS “role to assume” becomes, in this GCP design, a <strong>service account to impersonate</strong>. The permission bundle is not attached as an inline policy to the service account. Instead, the service account is granted IAM roles on projects/resources.
+</div>
+
+<h2>5. GCE runtime: metadata lane replaces EC2 instance profile</h2>
+<p>Your EC2 lab likely creates an instance profile so the VM can access AWS APIs without static keys. The GCP equivalent is: create a <strong>user-managed service account</strong>, grant it only runtime roles, and attach it to the VM. Google recommends user-managed service accounts for VMs, not relying on broad default service accounts.<sup><a href="#sources">3</a></sup></p>
+<pre><code>gcloud compute instances create VM_NAME \
+  --service-account=vm-runtime@PROJECT_ID.iam.gserviceaccount.com \
+  --scopes=cloud-platform</code></pre>
+<p>The <code>cloud-platform</code> scope is not the permission grant by itself; IAM roles on the service account still bound what the VM can do.</p>
+
+<h2>6. Retrieval practice: choose the lane</h2>
+<p class="small">Answer from memory. The feedback is immediate; if you miss one, ask the agent to explain that lane in AWS terms.</p>
+<div class="card quiz" data-answer="b"><p><strong>Q1.</strong> You type <code>gcloud iam service-accounts list</code> locally. Which lane?</p><button data-choice="a">ADC lane</button><button data-choice="b">gcloud lane</button><button data-choice="c">Metadata lane</button><div class="feedback"></div></div>
+<div class="card quiz" data-answer="a"><p><strong>Q2.</strong> GitHub Action runs <code>terraform plan</code> after <code>google-github-actions/auth</code>. Which lane?</p><button data-choice="a">ADC lane</button><button data-choice="b">SSH lane</button><button data-choice="c">Metadata lane</button><div class="feedback"></div></div>
+<div class="card quiz" data-answer="c"><p><strong>Q3.</strong> App code on the GCE VM gets a token for <code>vm-runtime@...</code>. Which lane?</p><button data-choice="a">Browser lane</button><button data-choice="b">gcloud lane</button><button data-choice="c">Metadata lane</button><div class="feedback"></div></div>
+<div class="card quiz" data-answer="b"><p><strong>Q4.</strong> Your AWS <code>*-github-apply</code> role most closely becomes what in GCP?</p><button data-choice="a">JSON key file</button><button data-choice="b">Apply service account</button><button data-choice="c">Default VM account</button><div class="feedback"></div></div>
+
+<h2>Reference</h2>
+<p>Keep this open while designing the GCE lab: <a href="../reference/0003-aws-to-gcp-auth-lane-map.html">AWS → GCP Auth Lane Map</a>. Also review <a href="../reference/0002-gcp-auth-terminology-glossary.html">GCP Auth Terminology Glossary</a> and Lesson 2: <a href="0002-gcloud-login-vs-adc.html">gcloud auth login vs ADC</a>.</p>
+
+<h2 id="sources">Primary sources</h2>
+<ol>
+<li><a href="https://docs.cloud.google.com/docs/authentication/use-service-account-impersonation">Google Cloud: Use service account impersonation</a></li>
+<li><a href="https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines">Google Cloud: Configure Workload Identity Federation with deployment pipelines</a></li>
+<li><a href="https://docs.cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances">Google Cloud: Create a VM that uses a user-managed service account</a></li>
+<li><a href="https://github.com/google-github-actions/auth">google-github-actions/auth</a></li>
+</ol>
+<p class="small">Follow-up prompt to ask the agent: “Given my actual AWS plan/push/apply policies, draft the first GCP service account and role-binding sketch.”</p>
+</article>
+<script>
+document.querySelectorAll('.quiz').forEach(q=>{q.addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;const ok=e.target.dataset.choice===q.dataset.answer;const f=q.querySelector('.feedback');f.textContent=ok?'Correct. Now name the exact identity you would expect in that lane.':'Not yet. Ask: is the caller gcloud, Terraform/client-library/tooling, or code already running on GCP?';f.style.color=ok?'#059669':'#b45309';});});
+</script>
+</body>
+</html>

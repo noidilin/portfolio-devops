@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GCP IAM/Auth Cheatsheet for AWS SSO Users</title>
+<style>
+  body{font-family:ui-serif,Georgia,serif;line-height:1.5;color:#1f2937;max-width:920px;margin:40px auto;padding:0 24px;background:#fff}
+  h1,h2{font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.15;color:#111827} h1{font-size:2rem} h2{margin-top:2rem;border-top:1px solid #e5e7eb;padding-top:1rem}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em} pre{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:14px;overflow:auto}
+  table{border-collapse:collapse;width:100%;font-size:.95rem} th,td{border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;padding:10px} th{font-family:ui-sans-serif,system-ui,sans-serif;background:#f9fafb}
+  .rule{background:#ecfdf5;border-left:4px solid #10b981;padding:12px 14px;border-radius:8px}.warn{background:#fff7ed;border-left:4px solid #f97316;padding:12px 14px;border-radius:8px}
+  @media print{body{margin:18mm;max-width:none}.no-print{display:none}a{color:#111827;text-decoration:none}}
+</style>
+</head>
+<body>
+<h1>GCP IAM/Auth Cheatsheet for AWS SSO Users</h1>
+<p class="rule"><strong>Best-practice default:</strong> human logs in with <code>gcloud auth login</code>, Terraform/app code uses ADC, privileged automation uses <strong>service account impersonation</strong>, GCE workloads use an <strong>attached user-managed service account</strong>. Avoid service account keys.</p>
+
+<h2>Concept map</h2>
+<table>
+<thead><tr><th>AWS concept you know</th><th>GCP concept</th><th>Important difference</th></tr></thead>
+<tbody>
+<tr><td>IAM Identity Center user + permission set</td><td>Google/Workspace/Cloud Identity user or Workforce identity + IAM role bindings</td><td>GCP grants roles directly on resources/projects/folders/orgs. No “assume role” as the normal human path.</td></tr>
+<tr><td>AWS IAM policy statement</td><td>IAM role binding in an allow policy</td><td>You grant roles, not raw permissions, to principals on a resource.</td></tr>
+<tr><td>Account</td><td>Project</td><td>Project is both resource container and billing/quota boundary. Organization/folders sit above it.</td></tr>
+<tr><td>EC2 instance profile role</td><td>GCE attached service account</td><td>VM metadata server supplies short-lived tokens for the attached service account.</td></tr>
+<tr><td>STS AssumeRole for local elevation</td><td>Service account impersonation</td><td>User must be allowed to impersonate the service account; then gets short-lived credentials.</td></tr>
+<tr><td>Permissions boundary</td><td>Deny policy / Principal Access Boundary / Org Policy</td><td>Not a one-for-one match. GCP has separate policy types and resource hierarchy controls.</td></tr>
+<tr><td>AWS profile / aws-sso session</td><td>gcloud configuration + active account/project</td><td>gcloud CLI credentials and ADC credentials are separate stores.</td></tr>
+</tbody></table>
+
+<h2>Session inspection commands</h2>
+<pre><code># Who will gcloud commands use?
+gcloud auth list
+gcloud config list account project compute/region compute/zone
+
+# Current access token for gcloud commands
+gcloud auth print-access-token
+
+# What ADC will libraries/Terraform usually use?
+gcloud auth application-default print-access-token
+
+# Switch account/project/configuration
+gcloud config set account YOU@example.com
+gcloud config set project PROJECT_ID
+gcloud config configurations list
+gcloud config configurations activate lab-gce
+
+# One command as a service account, without changing active login
+gcloud compute instances list \
+  --impersonate-service-account=tf-apply@PROJECT_ID.iam.gserviceaccount.com
+</code></pre>
+
+<h2>Two credential stores</h2>
+<table>
+<thead><tr><th>Store</th><th>Created by</th><th>Used by</th><th>AWS analogy</th></tr></thead>
+<tbody>
+<tr><td>gcloud CLI credentials</td><td><code>gcloud auth login</code></td><td><code>gcloud ...</code> commands</td><td><code>aws-sso login</code> cached role credentials for CLI</td></tr>
+<tr><td>ADC credentials</td><td><code>gcloud auth application-default login</code></td><td>Terraform Google provider, client libraries, many SDK tools</td><td>A default credential chain used by libraries</td></tr>
+</tbody></table>
+
+<h2>Lab 05 migration auth shape</h2>
+<ol>
+<li><strong>Local human:</strong> logs in with <code>gcloud auth login</code>; minimal project roles for learning and impersonation.</li>
+<li><strong>Terraform apply identity:</strong> user-managed service account, impersonated locally and by CI. This is closest to your GitHub OIDC apply role.</li>
+<li><strong>GCE runtime identity:</strong> user-managed service account attached to VM. Grant only Artifact Registry read/logging permissions needed by the instance.</li>
+<li><strong>CI identity:</strong> GitHub Actions should use Workload Identity Federation, not service account keys.</li>
+</ol>
+
+<p class="warn"><strong>Red flag:</strong> downloading a service account JSON key for local Terraform. Prefer impersonation or federation; keys are long-lived bearer secrets.</p>
+
+<h2>Primary sources</h2>
+<ul>
+<li><a href="https://docs.cloud.google.com/iam/docs/overview">IAM overview</a></li>
+<li><a href="https://docs.cloud.google.com/docs/authentication">Authentication for Google Cloud APIs and services</a></li>
+<li><a href="https://docs.cloud.google.com/docs/authentication/application-default-credentials">How Application Default Credentials works</a></li>
+<li><a href="https://docs.cloud.google.com/iam/docs/service-account-overview">Service accounts overview</a></li>
+</ul>
+<p class="no-print"><a href="../lessons/0001-gcp-auth-from-aws-sso.html">Back to lesson</a></p>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson 0001 — GCP auth from your AWS SSO model</title>
+<style>
+  :root{--ink:#111827;--muted:#4b5563;--line:#e5e7eb;--blue:#2563eb;--green:#059669;--amber:#d97706;--bg:#ffffff;--soft:#f8fafc}
+  body{font-family:ui-serif,Georgia,serif;color:var(--ink);line-height:1.58;max-width:860px;margin:42px auto;padding:0 24px;background:var(--bg)}
+  h1,h2,h3{font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.15} h1{font-size:2.1rem;letter-spacing:-.03em} h2{margin-top:2.2rem;border-top:1px solid var(--line);padding-top:1.1rem} h3{margin-top:1.4rem}
+  p,li{font-size:1.04rem}.lede{font-size:1.18rem;color:#374151}.card{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0}.win{border-left:4px solid var(--green)}.warn{border-left:4px solid var(--amber)}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em} pre{background:#0b1020;color:#e5e7eb;border-radius:12px;padding:16px;overflow:auto}
+  table{border-collapse:collapse;width:100%;font-size:.95rem;margin:14px 0}th,td{border-bottom:1px solid var(--line);text-align:left;vertical-align:top;padding:10px}th{font-family:ui-sans-serif,system-ui,sans-serif;background:#f9fafb}
+  a{color:var(--blue)}button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;margin:4px;cursor:pointer}button:hover{border-color:var(--blue)}.feedback{font-family:ui-sans-serif,system-ui,sans-serif;margin-top:10px;font-weight:650}.small{color:var(--muted);font-size:.93rem}.answer{display:none}.kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 5px;background:#fff}
+  @media print{body{margin:18mm;max-width:none}.no-print,button{display:none}.answer{display:block}a{color:var(--ink);text-decoration:none}pre{background:#f8fafc;color:#111827;border:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<article>
+<h1>GCP auth from your AWS SSO model</h1>
+<p class="lede">Goal: before we migrate <code>labs/05-static-site-ec2/</code> to GCE, you should be able to answer one safety question: <em>“Which identity is this terminal about to use, and what can it do?”</em></p>
+
+<div class="card win">
+<strong>Your existing anchor:</strong> in AWS Lab 05, local Terraform uses an IAM Identity Center <code>agent</code> permission set; Terraform-created EC2/GitHub/workload roles are constrained with boundaries and scoped <code>PassRole</code>. In GCP, the best-practice shape is usually <strong>human login → service account impersonation → attached service account on GCE</strong>, not long-lived keys.
+</div>
+
+<h2>1. Lab 05 has three identity paths</h2>
+<table>
+<thead><tr><th>Path in current AWS lab</th><th>What it does</th><th>GCP migration target</th></tr></thead>
+<tbody>
+<tr><td>Local SSO user/permission set</td><td>Runs Terraform and bootstrap commands</td><td>Human <code>gcloud auth login</code>, then optionally impersonate a Terraform service account</td></tr>
+<tr><td>EC2 instance profile role</td><td>EC2 pulls image from ECR and reports to SSM/logs</td><td>GCE VM with attached user-managed service account; it pulls from Artifact Registry</td></tr>
+<tr><td>GitHub OIDC roles</td><td>Plan/apply/push without static AWS keys</td><td>GitHub Workload Identity Federation impersonating deployment service accounts</td></tr>
+</tbody></table>
+<p>That last column is not just a translation. It reflects Google’s documented preference for attached service accounts, service account impersonation, and federation over service account keys.<sup><a href="#sources">1</a></sup></p>
+
+<h2>2. The core GCP IAM sentence</h2>
+<p>GCP IAM is still “who can do what on which resource,” but the nouns differ:</p>
+<blockquote class="card"><strong>Grant a principal a role on a resource using an allow policy.</strong></blockquote>
+<ul>
+<li><strong>Principal</strong>: user, group, service account, workforce identity, workload identity.</li>
+<li><strong>Role</strong>: collection of permissions; you grant roles, not individual permissions.</li>
+<li><strong>Resource</strong>: project, folder, organization, VM, bucket, service account, etc.</li>
+<li><strong>Allow policy</strong>: bindings from roles to principals, attached to resources and inherited down the hierarchy.<sup><a href="#sources">2</a></sup></li>
+</ul>
+
+<div class="card warn">
+<strong>AWS habit to retire:</strong> don’t look first for “the role I assumed.” For human CLI use, ask: active gcloud account? active project? am I impersonating a service account? does ADC differ from gcloud?
+</div>
+
+<h2>3. The terminal has two credential stores</h2>
+<p>This is the first practical trap. <code>gcloud</code> credentials and <strong>Application Default Credentials</strong> are separate. Google’s docs call this out explicitly.<sup><a href="#sources">3</a></sup></p>
+<table>
+<thead><tr><th>Question</th><th>Command</th><th>Why you care</th></tr></thead>
+<tbody>
+<tr><td>Who will <code>gcloud</code> use?</td><td><code>gcloud auth list</code></td><td>Like checking which AWS SSO account/profile is active.</td></tr>
+<tr><td>Which project is default?</td><td><code>gcloud config list project</code></td><td>Many commands infer project from config.</td></tr>
+<tr><td>Which token does CLI have?</td><td><code>gcloud auth print-access-token</code></td><td>Debug raw REST calls and expiry.</td></tr>
+<tr><td>What will Terraform/client libraries use?</td><td><code>gcloud auth application-default print-access-token</code></td><td>ADC may be a different identity from gcloud.</td></tr>
+</tbody></table>
+
+<pre><code># Safe local onboarding sequence for the first GCP lab
+
+gcloud auth login
+
+gcloud config configurations create lab-gce
+
+gcloud config set account YOU@example.com
+gcloud config set project PROJECT_ID
+gcloud config set compute/region asia-east1
+
+gcloud auth list
+gcloud config list account project compute/region
+
+# For Terraform/client libraries if not impersonating yet:
+gcloud auth application-default login
+
+# Later, preferred for apply identity:
+gcloud auth application-default login \
+  --impersonate-service-account=tf-apply@PROJECT_ID.iam.gserviceaccount.com
+</code></pre>
+
+<h2>4. Best-practice first design for the GCE migration</h2>
+<ol>
+<li><strong>Human principal:</strong> your user gets enough access to inspect the project and impersonate a narrowly-scoped Terraform service account.</li>
+<li><strong>Terraform service account:</strong> can create/manage the lab’s GCE VM, firewall, Artifact Registry repo, and runtime service account. This is your GCP counterpart to the AWS local operator / GitHub apply role boundary pattern.</li>
+<li><strong>Runtime service account:</strong> attached to the GCE VM. It gets only pull/read/logging permissions needed at boot. This replaces the EC2 instance profile.</li>
+<li><strong>No JSON keys:</strong> use impersonation locally and Workload Identity Federation in GitHub. Treat service account keys like leaked long-lived AWS access keys waiting to happen.</li>
+</ol>
+<p>Keep <a href="../reference/0001-gcp-iam-auth-cheatsheet.html">the cheatsheet</a> open while you practice.</p>
+
+<h2>5. Retrieval practice</h2>
+<p class="small">Answer from memory first. The buttons give immediate feedback.</p>
+<div class="card quiz" data-answer="b"><p><strong>Q1.</strong> Which command checks the identity used by most <code>gcloud</code> commands?</p><button data-choice="a">gcloud projects list</button><button data-choice="b">gcloud auth list</button><button data-choice="c">gcloud init now</button><div class="feedback"></div></div>
+<div class="card quiz" data-answer="c"><p><strong>Q2.</strong> Which credential store commonly matters to Terraform and client libraries?</p><button data-choice="a">Only gcloud config</button><button data-choice="b">Docker credential</button><button data-choice="c">Application Default</button><div class="feedback"></div></div>
+<div class="card quiz" data-answer="a"><p><strong>Q3.</strong> What is the GCP replacement for an EC2 instance profile role?</p><button data-choice="a">Attached service acct</button><button data-choice="b">Project owner login</button><button data-choice="c">Downloaded key file</button><div class="feedback"></div></div>
+
+<h2>Next tiny lab action</h2>
+<p>In your next session, we should design the minimum GCP IAM bootstrap for the GCE migration: project roles for your human user, a Terraform apply service account, and a VM runtime service account. Ask me follow-up questions about any term that still feels AWS-shaped.</p>
+
+<h2 id="sources">Primary sources</h2>
+<ol>
+<li><a href="https://docs.cloud.google.com/docs/authentication">Authentication for Google Cloud APIs and services</a></li>
+<li><a href="https://docs.cloud.google.com/iam/docs/overview">IAM overview</a></li>
+<li><a href="https://docs.cloud.google.com/docs/authentication/application-default-credentials">How Application Default Credentials works</a></li>
+<li><a href="https://docs.cloud.google.com/iam/docs/service-account-overview">Service accounts overview</a></li>
+<li><a href="https://docs.cloud.google.com/sdk/gcloud/reference/auth/login">gcloud auth login reference</a></li>
+</ol>
+</article>
+<script>
+document.querySelectorAll('.quiz').forEach(q=>{q.addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;const ok=e.target.dataset.choice===q.dataset.answer;const f=q.querySelector('.feedback');f.textContent=ok?'Correct. Say why in your own words before moving on.':'Not yet. Re-read the table above, then try again.';f.style.color=ok?'#059669':'#b45309';});});
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GCP Auth Terminology Glossary</title>
+<style>
+  body{font-family:ui-serif,Georgia,serif;line-height:1.5;color:#111827;max-width:900px;margin:40px auto;padding:0 24px;background:#fff}
+  h1,h2{font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.15} h1{font-size:2rem} h2{margin-top:2rem;border-top:1px solid #e5e7eb;padding-top:1rem}
+  dt{font-family:ui-sans-serif,system-ui,sans-serif;font-weight:750;margin-top:1rem} dd{margin-left:0;color:#374151} code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3f4f6;padding:1px 4px;border-radius:4px}
+  table{border-collapse:collapse;width:100%;font-size:.95rem} th,td{border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;padding:10px} th{font-family:ui-sans-serif,system-ui,sans-serif;background:#f9fafb}
+  .box{background:#f8fafc;border:1px solid #e5e7eb;border-left:4px solid #2563eb;border-radius:12px;padding:14px;margin:16px 0}.warn{border-left-color:#f97316;background:#fff7ed}
+  pre{background:#0b1020;color:#e5e7eb;border-radius:12px;padding:14px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem}
+  @media print{body{margin:18mm;max-width:none}a{color:#111827;text-decoration:none}pre{background:#f8fafc;color:#111827;border:1px solid #e5e7eb}}
+</style>
+</head>
+<body>
+<h1>GCP Auth Terminology Glossary</h1>
+<div class="box"><strong>Shortcut:</strong> <code>gcloud auth login</code> is for the <strong>gcloud CLI</strong>. <code>gcloud auth application-default login</code> is for <strong>Application Default Credentials</strong>, used by client libraries and many tools such as Terraform providers.</div>
+
+<h2>Core terms</h2>
+<dl>
+<dt>Principal</dt><dd>An authenticated identity that can receive access: user, group, service account, workforce identity, or workload identity. AWS-ish: IAM user/role/federated principal.</dd>
+<dt>User account</dt><dd>A human identity, often a Google Account, Google Workspace / Cloud Identity user, or a federated workforce identity.</dd>
+<dt>Service account</dt><dd>A workload identity managed by Google Cloud. It is both a <em>principal</em> that can access resources and a <em>resource</em> that other principals can be allowed to impersonate or attach.</dd>
+<dt>Role</dt><dd>A bundle of permissions, like <code>roles/compute.instanceAdmin.v1</code>. GCP IAM grants roles, not individual permissions directly.</dd>
+<dt>Allow policy</dt><dd>A policy attached to a resource containing role bindings: “principal X has role Y on resource Z.” Inherited from organization → folder → project → service resource.</dd>
+<dt>gcloud configuration</dt><dd>A named set of CLI properties such as account, project, region, zone, and impersonation settings. AWS-ish: named profile settings, but with separate auth storage.</dd>
+<dt>Active account</dt><dd>The principal gcloud will use by default, unless overridden by flags, environment variables, credential files, or impersonation.</dd>
+<dt>ADC</dt><dd>Application Default Credentials: a lookup strategy used by Google auth libraries to find credentials for code/tools. It is not the same as the active gcloud account.</dd>
+<dt>Quota project</dt><dd>The project charged/used for quota by client libraries when calling APIs with ADC. This can be separate from the resource project.</dd>
+<dt>Access token</dt><dd>Short-lived bearer token sent to Google APIs. You usually inspect it for debugging, not store it as your main auth method.</dd>
+<dt>Service account impersonation</dt><dd>A principal gets short-lived credentials for a service account, if allowed. AWS-ish: closer to STS AssumeRole than to a static access key.</dd>
+<dt>Workforce Identity Federation</dt><dd>Federation for human users from an external IdP. AWS-ish: IAM Identity Center / enterprise SSO area.</dd>
+<dt>Workload Identity Federation</dt><dd>Federation for non-human workloads outside Google Cloud, such as GitHub Actions. AWS-ish: GitHub OIDC role assumption.</dd>
+</dl>
+
+<h2>Which auth command?</h2>
+<table>
+<thead><tr><th>Use case</th><th>Command/pattern</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>You type <code>gcloud compute instances list</code></td><td><code>gcloud auth login</code></td><td>Authorizes the gcloud CLI to act as your user.</td></tr>
+<tr><td>You run Terraform Google provider locally</td><td><code>gcloud auth application-default login</code> or ADC impersonation</td><td>Terraform commonly uses ADC, not the gcloud active account.</td></tr>
+<tr><td>You run local app code using Google client libraries</td><td><code>gcloud auth application-default login</code></td><td>Client libraries search ADC automatically.</td></tr>
+<tr><td>You want one CLI command as a deploy service account</td><td><code>gcloud ... --impersonate-service-account=SA</code></td><td>Temporary per-command elevation without switching login.</td></tr>
+<tr><td>Code runs on GCE VM</td><td>Attach a service account to the VM</td><td>ADC gets tokens from metadata server. No local login or key.</td></tr>
+<tr><td>GitHub Actions deploys to GCP</td><td>Workload Identity Federation</td><td>Short-lived federated tokens. No JSON key in secrets.</td></tr>
+</tbody></table>
+
+<h2>Inspection commands</h2>
+<pre><code>gcloud auth list
+
+gcloud config configurations list
+gcloud config list account project compute/region compute/zone auth/impersonate_service_account
+
+gcloud auth print-access-token
+
+gcloud auth application-default print-access-token
+
+# macOS/Linux ADC file location, if created by application-default login
+ls -l ~/.config/gcloud/application_default_credentials.json
+</code></pre>
+
+<h2>Sources</h2>
+<ul>
+<li><a href="https://docs.cloud.google.com/sdk/docs/authenticate">Authenticate for the gcloud CLI</a></li>
+<li><a href="https://docs.cloud.google.com/docs/authentication/provide-credentials-adc">Set up Application Default Credentials</a></li>
+<li><a href="https://docs.cloud.google.com/docs/authentication/application-default-credentials">How Application Default Credentials works</a></li>
+<li><a href="https://docs.cloud.google.com/sdk/gcloud/reference/auth/application-default/login">gcloud auth application-default login</a></li>
+</ul>
+</body>
+</html>
