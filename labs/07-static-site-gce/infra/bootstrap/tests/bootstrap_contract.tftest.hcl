@@ -4,17 +4,58 @@ mock_provider "aws" {
       account_id = "123456789012"
     }
   }
-
-  mock_data "aws_iam_policy_document" {
-    defaults = {
-      json = jsonencode({
-        Version   = "2012-10-17"
-        Statement = []
-      })
-    }
-  }
 }
 mock_provider "google" {}
+
+override_data {
+  target = data.aws_iam_policy_document.github_plan_assume_role
+  values = {
+    json = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = [
+              "repo:OWNER/REPO:pull_request",
+              "repo:OWNER/REPO:ref:refs/heads/main",
+            ]
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:job_workflow_ref" = "OWNER/REPO/.github/workflows/gcp-bootstrap-ci.yml@*"
+          }
+        }
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        }
+      }]
+    })
+  }
+}
+
+override_data {
+  target = data.aws_iam_policy_document.github_image_push_assume_role
+  values = {
+    json = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:OWNER/REPO:ref:refs/heads/main"
+          }
+        }
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        }
+      }]
+    })
+  }
+}
 
 run "lab07_bootstrap_contract" {
   command = plan
@@ -57,6 +98,16 @@ run "lab07_bootstrap_contract" {
   assert {
     condition     = aws_iam_role.github_plan.name == "devops-static-site-gce-stage-github-plan" && aws_iam_policy.github_plan.name == "devops-static-site-gce-stage-github-plan"
     error_message = "Lab 07 should create an AWS OIDC plan role so CI can read ECR through AWS credentials instead of GCP credentials."
+  }
+
+  assert {
+    condition     = strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "token.actions.githubusercontent.com:aud") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "sts.amazonaws.com") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:pull_request") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "token.actions.githubusercontent.com:job_workflow_ref") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "OWNER/REPO/.github/workflows/gcp-bootstrap-ci.yml@*")
+    error_message = "Lab 07 plan role trust must stay scoped by GitHub OIDC audience, subject, and bootstrap workflow."
+  }
+
+  assert {
+    condition     = strcontains(data.aws_iam_policy_document.github_image_push_assume_role.json, "token.actions.githubusercontent.com:aud") && strcontains(data.aws_iam_policy_document.github_image_push_assume_role.json, "sts.amazonaws.com") && strcontains(data.aws_iam_policy_document.github_image_push_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main")
+    error_message = "Lab 07 image-push role trust must stay scoped by GitHub OIDC audience and main-branch subject."
   }
 
   assert {

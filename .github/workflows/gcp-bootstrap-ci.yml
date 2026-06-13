@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: gcp-bootstrap-ci-${{ github.ref }}
@@ -51,6 +50,9 @@ jobs:
   per-lab-bootstrap-plan:
     name: ${{ matrix.lab.id }} WIF auth and safe plan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:

@@ -131,23 +131,13 @@ resource "google_project_iam_custom_role" "apply" {
     "artifactregistry.repositories.get",
     "artifactregistry.repositories.list",
     "artifactregistry.repositories.update",
-    "iam.roles.create",
-    "iam.roles.delete",
     "iam.roles.get",
     "iam.roles.list",
-    "iam.roles.undelete",
-    "iam.roles.update",
-    "iam.serviceAccounts.actAs",
-    "iam.serviceAccounts.create",
-    "iam.serviceAccounts.delete",
     "iam.serviceAccounts.get",
     "iam.serviceAccounts.getIamPolicy",
     "iam.serviceAccounts.list",
-    "iam.serviceAccounts.setIamPolicy",
-    "iam.serviceAccounts.update",
     "resourcemanager.projects.get",
     "resourcemanager.projects.getIamPolicy",
-    "resourcemanager.projects.setIamPolicy",
     "run.operations.get",
     "run.routes.get",
     "run.routes.list",
@@ -170,6 +160,34 @@ resource "google_project_iam_custom_role" "apply" {
     "storage.objects.get",
     "storage.objects.list",
     "storage.objects.update",
+  ]
+}
+
+resource "google_project_iam_custom_role" "bootstrap_admin" {
+  project     = var.gcp_project_id
+  role_id     = local.bootstrap_admin_custom_role_id
+  title       = "Lab 08 Cloud Run bootstrap admin"
+  description = "One-time project/IAM mutation permissions for controlled Lab 08 bootstrap, isolated from durable GitHub apply."
+  stage       = "GA"
+
+  permissions = [
+    "iam.roles.create",
+    "iam.roles.delete",
+    "iam.roles.get",
+    "iam.roles.list",
+    "iam.roles.undelete",
+    "iam.roles.update",
+    "iam.serviceAccounts.actAs",
+    "iam.serviceAccounts.create",
+    "iam.serviceAccounts.delete",
+    "iam.serviceAccounts.get",
+    "iam.serviceAccounts.getIamPolicy",
+    "iam.serviceAccounts.list",
+    "iam.serviceAccounts.setIamPolicy",
+    "iam.serviceAccounts.update",
+    "resourcemanager.projects.get",
+    "resourcemanager.projects.getIamPolicy",
+    "resourcemanager.projects.setIamPolicy",
   ]
 }
 

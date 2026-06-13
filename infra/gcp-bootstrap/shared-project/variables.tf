@@ -64,8 +64,8 @@ variable "budget_amount_units" {
   default     = 10
 
   validation {
-    condition     = var.budget_amount_units > 0
-    error_message = "budget_amount_units must be greater than zero."
+    condition     = var.budget_amount_units > 0 && var.budget_amount_units == floor(var.budget_amount_units)
+    error_message = "budget_amount_units must be an integer greater than zero."
   }
 }
 
@@ -75,8 +75,8 @@ variable "budget_amount_nanos" {
   default     = 0
 
   validation {
-    condition     = var.budget_amount_nanos >= 0 && var.budget_amount_nanos < 1000000000
-    error_message = "budget_amount_nanos must be between 0 and 999999999."
+    condition     = var.budget_amount_nanos >= 0 && var.budget_amount_nanos < 1000000000 && var.budget_amount_nanos == floor(var.budget_amount_nanos)
+    error_message = "budget_amount_nanos must be an integer between 0 and 999999999."
   }
 }
 
