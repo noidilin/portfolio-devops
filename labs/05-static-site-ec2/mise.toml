@@ -1,4 +1,3 @@
 [tools]
 aws = { version = "2.34", symlink_bins = "true" }
-node = { version = "24.16", postinstall = "corepack enable pnpm" }
 terraform = "1.15"

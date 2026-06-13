@@ -19,9 +19,9 @@ output "container_image" {
 }
 
 output "docker_build_tag_push_commands" {
-  description = "Example commands to build, tag, and push the configured CIDR calculator image from the lab root."
+  description = "Example commands to build the shared CIDR Calculator app image, then tag and push it to this lab's ECR repository."
   value = [
-    "docker build -t ${var.service_name}:${var.image_tag} .",
+    "docker build -t ${var.service_name}:${var.image_tag} ../../../../apps/cidr-calculator",
     "docker tag ${var.service_name}:${var.image_tag} ${module.runtime.ecr_repository_url}:${var.image_tag}",
     "docker push ${module.runtime.ecr_repository_url}:${var.image_tag}"
   ]
