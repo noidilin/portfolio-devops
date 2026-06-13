@@ -1,5 +1,9 @@
 # Shared infrastructure
 
+## `gcp-bootstrap/`
+
+See [`gcp-bootstrap/README.md`](gcp-bootstrap/README.md) for the full GCP bootstrap runbook and handoff: first-run order, local ADC, shared-vs-per-lab state boundaries, dual-cloud image foundation, CI WIF proof, and runtime-destroy guardrails.
+
 ## `gcp-bootstrap/shared-project/`
 
 Bootstraps the shared foundation inside an already-created, billing-linked GCP project for future GCE and Cloud Run labs.
