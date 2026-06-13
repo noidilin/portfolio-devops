@@ -1,5 +1,7 @@
 # Shared GCP project bootstrap
 
+For the end-to-end operator order and handoff checklist, see [`../README.md`](../README.md).
+
 This Terraform root bootstraps the shared foundation for an already-created and billing-linked personal GCP project. It is the only local-state exception in the GCP lab stack: it creates the GCS bucket that later per-lab bootstrap and runtime roots use for remote state.
 
 ## What it manages
