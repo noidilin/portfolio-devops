@@ -1,0 +1,12 @@
+# Placeholder-only example. Copy to bootstrap.auto.tfvars and replace values locally.
+gcp_project_id        = "example-devops-labs"
+gcp_state_bucket_name = "example-devops-labs-tf-state"
+github_repository     = "OWNER/REPO"
+
+# Defaults match the shared GCP bootstrap outputs.
+gcp_region             = "asia-northeast1"
+github_wif_pool_id     = "github-actions"
+github_wif_provider_id = "github"
+
+environment        = "stage"
+github_environment = "lab-08-stage"
