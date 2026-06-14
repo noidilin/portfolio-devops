@@ -57,6 +57,28 @@ override_data {
   }
 }
 
+override_data {
+  target = data.aws_iam_policy_document.github_image_pull_assume_role
+  values = {
+    json = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub" = "repo:OWNER/REPO:environment:lab-07-stage"
+          }
+        }
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+        }
+      }]
+    })
+  }
+}
+
 run "lab07_bootstrap_contract" {
   command = plan
 
@@ -111,13 +133,18 @@ run "lab07_bootstrap_contract" {
   }
 
   assert {
+    condition     = strcontains(data.aws_iam_policy_document.github_image_pull_assume_role.json, "token.actions.githubusercontent.com:aud") && strcontains(data.aws_iam_policy_document.github_image_pull_assume_role.json, "sts.amazonaws.com") && strcontains(data.aws_iam_policy_document.github_image_pull_assume_role.json, "repo:OWNER/REPO:environment:lab-07-stage") && aws_iam_role.github_image_pull.assume_role_policy == data.aws_iam_policy_document.github_image_pull_assume_role.json
+    error_message = "Lab 07 image-pull role trust must allow the protected GitHub Environment subject used by the approved deploy job."
+  }
+
+  assert {
     condition     = contains(google_service_account_iam_binding.plan_wif.members, "principal://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/github-actions/subject/repo:OWNER/REPO:pull_request") && contains(google_service_account_iam_binding.apply_wif.members, "principal://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/github-actions/subject/repo:OWNER/REPO:environment:lab-07-stage")
     error_message = "GitHub WIF bindings should scope plan to PR/main contexts and apply to the protected Lab 07 environment."
   }
 
   assert {
-    condition     = contains(google_project_iam_custom_role.plan.permissions, "storage.buckets.getIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "storage.buckets.getIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "storage.buckets.setIamPolicy")
-    error_message = "Plan/apply identities need bucket IAM read access for Terraform refresh, and apply needs setIamPolicy to manage state bucket IAM members."
+    condition     = contains(google_project_iam_custom_role.plan.permissions, "storage.buckets.getIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "storage.buckets.getIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "storage.buckets.setIamPolicy") && contains(google_project_iam_custom_role.plan.permissions, "artifactregistry.repositories.getIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "artifactregistry.repositories.setIamPolicy") && contains(google_project_iam_custom_role.apply.permissions, "compute.subnetworks.useExternalIp")
+    error_message = "Plan/apply identities need IAM policy access for Terraform-managed IAM members and external-IP subnet use for the public GCE instance."
   }
 
   assert {

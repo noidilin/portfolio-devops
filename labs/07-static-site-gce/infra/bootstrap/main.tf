@@ -63,7 +63,7 @@ resource "aws_iam_role" "github_image_push" {
 resource "aws_iam_role" "github_image_pull" {
   name                 = "${local.name_prefix}-github-image-pull"
   permissions_boundary = local.permissions_boundary_arn
-  assume_role_policy   = data.aws_iam_policy_document.github_image_push_assume_role.json
+  assume_role_policy   = data.aws_iam_policy_document.github_image_pull_assume_role.json
 
   tags = local.aws_tags
 }

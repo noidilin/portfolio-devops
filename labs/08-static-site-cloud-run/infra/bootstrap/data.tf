@@ -53,7 +53,7 @@ data "aws_iam_policy_document" "github_image_push_assume_role" {
   }
 }
 
-data "aws_iam_policy_document" "github_apply_assume_role" {
+data "aws_iam_policy_document" "github_image_pull_assume_role" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
 

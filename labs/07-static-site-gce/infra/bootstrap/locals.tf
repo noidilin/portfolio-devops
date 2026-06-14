@@ -22,6 +22,7 @@ locals {
 
   plan_permissions = [
     "artifactregistry.repositories.get",
+    "artifactregistry.repositories.getIamPolicy",
     "artifactregistry.repositories.list",
     "artifactregistry.tags.get",
     "artifactregistry.tags.list",
@@ -58,6 +59,7 @@ locals {
     "artifactregistry.repositories.create",
     "artifactregistry.repositories.delete",
     "artifactregistry.repositories.downloadArtifacts",
+    "artifactregistry.repositories.setIamPolicy",
     "artifactregistry.repositories.update",
     "artifactregistry.repositories.uploadArtifacts",
     "artifactregistry.tags.create",
@@ -84,6 +86,7 @@ locals {
     "compute.subnetworks.create",
     "compute.subnetworks.delete",
     "compute.subnetworks.use",
+    "compute.subnetworks.useExternalIp",
     "iam.serviceAccounts.actAs",
     "iam.serviceAccounts.create",
     "iam.serviceAccounts.delete",

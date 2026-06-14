@@ -56,7 +56,7 @@ override_data {
 }
 
 override_data {
-  target = data.aws_iam_policy_document.github_apply_assume_role
+  target = data.aws_iam_policy_document.github_image_pull_assume_role
   values = {
     json = jsonencode({
       Version = "2012-10-17"
@@ -127,8 +127,8 @@ run "lab08_bootstrap_contract" {
   }
 
   assert {
-    condition     = contains(google_project_iam_custom_role.apply.permissions, "artifactregistry.repositories.downloadArtifacts") && contains(google_project_iam_custom_role.apply.permissions, "artifactregistry.repositories.uploadArtifacts")
-    error_message = "The durable Lab 08 apply role must be able to mirror approved Docker images into Artifact Registry."
+    condition     = contains(google_project_iam_custom_role.apply.permissions, "artifactregistry.repositories.downloadArtifacts") && contains(google_project_iam_custom_role.apply.permissions, "artifactregistry.repositories.uploadArtifacts") && contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.actAs")
+    error_message = "The durable Lab 08 apply role must mirror approved Docker images and act as the Cloud Run runtime service account."
   }
 
   assert {
@@ -142,8 +142,8 @@ run "lab08_bootstrap_contract" {
   }
 
   assert {
-    condition     = strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "token.actions.githubusercontent.com:aud") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "sts.amazonaws.com") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:pull_request") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_image_push_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_apply_assume_role.json, "repo:OWNER/REPO:environment:lab-08-stage")
-    error_message = "AWS OIDC trust policies must stay scoped to PR/main for plan/push and protected environment for apply."
+    condition     = strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "token.actions.githubusercontent.com:aud") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "sts.amazonaws.com") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:pull_request") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_image_push_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_image_pull_assume_role.json, "repo:OWNER/REPO:environment:lab-08-stage")
+    error_message = "AWS OIDC trust policies must stay scoped to PR/main for plan/push and protected environment for image pull."
   }
 
   assert {
