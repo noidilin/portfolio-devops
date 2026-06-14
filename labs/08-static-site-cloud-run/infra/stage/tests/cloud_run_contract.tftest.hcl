@@ -24,4 +24,9 @@ run "cloud_run_runtime_contract" {
     condition     = output.container_port == 80
     error_message = "Cloud Run must expose the shared static-site container on port 80."
   }
+
+  assert {
+    condition     = length(output.service_name) < 50
+    error_message = "Cloud Run service IDs must stay below the API's 50-character limit."
+  }
 }
