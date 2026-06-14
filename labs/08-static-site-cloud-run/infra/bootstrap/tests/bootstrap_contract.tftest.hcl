@@ -127,6 +127,11 @@ run "lab08_bootstrap_contract" {
   }
 
   assert {
+    condition     = contains(google_project_iam_custom_role.apply.permissions, "artifactregistry.repositories.downloadArtifacts") && contains(google_project_iam_custom_role.apply.permissions, "artifactregistry.repositories.uploadArtifacts")
+    error_message = "The durable Lab 08 apply role must be able to mirror approved Docker images into Artifact Registry."
+  }
+
+  assert {
     condition     = !contains(google_project_iam_custom_role.apply.permissions, "iam.roles.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.setIamPolicy") && !contains(google_project_iam_custom_role.apply.permissions, "resourcemanager.projects.setIamPolicy")
     error_message = "The durable Lab 08 apply role must not retain project/IAM bootstrap-admin permissions."
   }
