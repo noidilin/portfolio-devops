@@ -38,6 +38,16 @@ variable "artifact_registry_host" {
   type        = string
 }
 
+variable "artifact_registry_repository_id" {
+  description = "Artifact Registry Docker repository ID that the runtime VM may read."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,126}[a-z0-9]$", var.artifact_registry_repository_id))
+    error_message = "artifact_registry_repository_id must be a valid Artifact Registry repository ID."
+  }
+}
+
 variable "container_port" {
   description = "Container port exposed by the static-site image."
   type        = number

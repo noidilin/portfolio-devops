@@ -309,15 +309,28 @@ resource "aws_iam_policy" "github_image_push" {
 
 resource "aws_iam_policy" "github_apply" {
   name        = "${local.name_prefix}-github-apply"
-  description = "Apply permissions for Lab 08 Cloud Run bootstrap AWS resources."
+  description = "Apply and ECR pull permissions for Lab 08 Cloud Run bootstrap AWS resources."
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "AllowRepositoryRead"
+        Sid      = "AllowEcrAuthToken"
         Effect   = "Allow"
-        Action   = ["ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:GetLifecyclePolicy", "ecr:ListTagsForResource"]
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowRepositoryRead"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:GetLifecyclePolicy",
+          "ecr:ListTagsForResource"
+        ]
         Resource = aws_ecr_repository.service.arn
       }
     ]

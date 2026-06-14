@@ -20,6 +20,13 @@ data "google_compute_image" "ubuntu" {
 
 resource "terraform_data" "container_image" {
   input = var.container_image
+
+  lifecycle {
+    precondition {
+      condition     = startswith(var.container_image, "${var.artifact_registry_host}/")
+      error_message = "container_image registry host must match artifact_registry_host."
+    }
+  }
 }
 
 resource "google_compute_network" "runtime" {
@@ -73,10 +80,12 @@ resource "google_service_account" "runtime" {
   description  = "Dedicated runtime identity for the Lab 07 GCE Docker static-site VM."
 }
 
-resource "google_project_iam_member" "artifact_registry_reader" {
-  project = var.gcp_project_id
-  role    = "roles/artifactregistry.reader"
-  member  = google_service_account.runtime.member
+resource "google_artifact_registry_repository_iam_member" "artifact_registry_reader" {
+  project    = var.gcp_project_id
+  location   = var.gcp_region
+  repository = var.artifact_registry_repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = google_service_account.runtime.member
 }
 
 resource "google_compute_instance" "static_site" {
@@ -121,5 +130,5 @@ resource "google_compute_instance" "static_site" {
     replace_triggered_by = [terraform_data.container_image]
   }
 
-  depends_on = [google_project_iam_member.artifact_registry_reader]
+  depends_on = [google_artifact_registry_repository_iam_member.artifact_registry_reader]
 }

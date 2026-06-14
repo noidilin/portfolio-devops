@@ -60,6 +60,14 @@ resource "aws_iam_role" "github_image_push" {
   tags = local.aws_tags
 }
 
+resource "aws_iam_role" "github_image_pull" {
+  name                 = "${local.name_prefix}-github-image-pull"
+  permissions_boundary = local.permissions_boundary_arn
+  assume_role_policy   = data.aws_iam_policy_document.github_image_push_assume_role.json
+
+  tags = local.aws_tags
+}
+
 resource "aws_iam_policy" "github_plan" {
   name        = "${local.name_prefix}-github-plan"
   description = "Read-only AWS permissions for ${local.ecr_repository_name} bootstrap plans."
@@ -133,6 +141,34 @@ resource "aws_iam_policy" "github_image_push" {
   tags = local.aws_tags
 }
 
+resource "aws_iam_policy" "github_image_pull" {
+  name        = "${local.name_prefix}-github-image-pull"
+  description = "ECR pull permissions for ${local.ecr_repository_name}."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "AllowEcrAuthToken"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowRepositoryPull"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
+        ]
+        Resource = aws_ecr_repository.service.arn
+      }
+    ]
+  })
+
+  tags = local.aws_tags
+}
+
 resource "aws_iam_role_policy_attachment" "github_plan" {
   role       = aws_iam_role.github_plan.name
   policy_arn = aws_iam_policy.github_plan.arn
@@ -141,6 +177,11 @@ resource "aws_iam_role_policy_attachment" "github_plan" {
 resource "aws_iam_role_policy_attachment" "github_image_push" {
   role       = aws_iam_role.github_image_push.name
   policy_arn = aws_iam_policy.github_image_push.arn
+}
+
+resource "aws_iam_role_policy_attachment" "github_image_pull" {
+  role       = aws_iam_role.github_image_pull.name
+  policy_arn = aws_iam_policy.github_image_pull.arn
 }
 
 resource "google_artifact_registry_repository" "mirror" {

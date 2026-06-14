@@ -5,6 +5,7 @@ run "cloud_run_runtime_contract" {
 
   variables {
     gcp_project_id                  = "example-devops-labs"
+    gcp_region                      = "asia-northeast1"
     artifact_registry_repository_id = "devops-static-site-cloud-run-stage-cidr-calculator"
     image_tag                       = "sha-0123456789abcdef0123456789abcdef01234567"
   }

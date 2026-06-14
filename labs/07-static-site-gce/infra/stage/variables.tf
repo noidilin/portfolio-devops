@@ -24,18 +24,33 @@ variable "environment" {
   description = "Deployment environment name."
   type        = string
   default     = "stage"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.environment))
+    error_message = "environment must use lowercase letters, digits, and hyphens only."
+  }
 }
 
 variable "project_name" {
   description = "Project/lab name used in resource names and labels."
   type        = string
   default     = "static-site-gce"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.project_name))
+    error_message = "project_name must use lowercase letters, digits, and hyphens only."
+  }
 }
 
 variable "service_name" {
   description = "Service/image artifact name."
   type        = string
   default     = "cidr-calculator"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.service_name))
+    error_message = "service_name must use lowercase letters, digits, and hyphens only."
+  }
 }
 
 variable "artifact_registry_repository_id" {
