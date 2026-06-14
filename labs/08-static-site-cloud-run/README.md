@@ -139,6 +139,18 @@ terraform output list_revisions_command
 | CloudWatch logs and ECS service inspection | Cloud Logging by default plus `gcloud run` service/revision inspection |
 | Optional/default managed networking in the AWS runtime | No VPC connector; public ingress directly to Cloud Run |
 
+## Approved destroy workflow
+
+Use `.github/workflows/gcp-runtime-destroy.yml` for gated runtime teardown:
+
+1. Run **GCP runtime destroy** manually from GitHub Actions.
+2. Select `08-static-site-cloud-run`.
+3. Approve the `lab-08-stage` GitHub Environment prompt.
+
+After approval, the workflow authenticates to GCP through Workload Identity Federation as `lab-08-cloudrun-apply@portfolio-devops-labs.iam.gserviceaccount.com`, initializes only `labs/08-static-site-cloud-run/infra/stage`, and runs `terraform destroy` against the runtime state prefix `gcp/runtime/labs/08-static-site-cloud-run/stage`. It does not initialize or destroy the shared GCP bootstrap root or the Lab 08 bootstrap root.
+
+The workflow validates teardown by confirming the previous HTTPS endpoint no longer responds, the Cloud Run service is no longer describable, and durable GCP bootstrap resources remain addressable: the GCS state bucket, Artifact Registry repository, apply service account, and apply custom role. AWS-side ECR image history is intentionally outside this GCP-only runtime destroy path and remains owned by the Lab 08 bootstrap resources.
+
 ## Teardown semantics
 
 Destroy only the disposable Cloud Run runtime:
@@ -148,4 +160,4 @@ cd labs/08-static-site-cloud-run/infra/stage
 terraform destroy
 ```
 
-This removes the Cloud Run service and its dedicated runtime service account. It does not remove the shared GCP bootstrap, Lab 08 bootstrap, ECR repository, Artifact Registry repository, image history, GitHub identities, or GCS state bucket.
+This removes the Cloud Run service and its dedicated runtime service account. It does not remove the shared GCP bootstrap, Lab 08 bootstrap, ECR repository, Artifact Registry repository, image history, Workload Identity Federation, plan/apply service accounts, custom roles, GitHub identities, budgets, or GCS state bucket.
