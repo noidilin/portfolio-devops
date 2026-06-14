@@ -57,7 +57,9 @@ locals {
   apply_permissions = distinct(concat(local.plan_permissions, [
     "artifactregistry.repositories.create",
     "artifactregistry.repositories.delete",
+    "artifactregistry.repositories.downloadArtifacts",
     "artifactregistry.repositories.update",
+    "artifactregistry.repositories.uploadArtifacts",
     "artifactregistry.tags.create",
     "artifactregistry.tags.delete",
     "artifactregistry.tags.update",
