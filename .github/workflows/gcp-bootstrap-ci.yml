@@ -33,10 +33,10 @@ jobs:
     name: Shared bootstrap fmt/validate/test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
       - name: Terraform fmt, validate, and tests
         working-directory: infra/gcp-bootstrap/shared-project
         shell: bash
@@ -68,16 +68,16 @@ jobs:
             gcp_plan_service_account: lab-08-cloudrun-plan@portfolio-devops-labs.iam.gserviceaccount.com
             aws_plan_role_arn: arn:aws:iam::549475122024:role/devops-static-site-cloud-run-stage-github-plan
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
 
       # GCP authority: exchange the GitHub OIDC token through Workload Identity
       # Federation and impersonate the lab-specific GCP plan service account.
       # No GCP service account key is downloaded, stored, or required.
       - name: Authenticate to GCP through WIF plan identity
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
           service_account: ${{ matrix.lab.gcp_plan_service_account }}
@@ -87,7 +87,7 @@ jobs:
       # AWS authority stays separate from GCP authority. ECR is canonical for
       # images, so Terraform's AWS provider uses AWS OIDC/STS, not GCP creds.
       - name: Authenticate to AWS through OIDC plan role
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ matrix.lab.aws_plan_role_arn }}
           aws-region: ${{ env.AWS_REGION }}
