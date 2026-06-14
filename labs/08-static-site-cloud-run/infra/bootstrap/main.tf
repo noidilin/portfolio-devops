@@ -199,6 +199,18 @@ resource "google_project_iam_member" "plan" {
   member  = google_service_account.plan.member
 }
 
+resource "google_storage_bucket_iam_member" "plan_state_lock" {
+  bucket = var.gcp_state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = google_service_account.plan.member
+
+  condition {
+    title       = "TerraformStateLockFiles"
+    description = "Allow PR plans to create and delete Terraform GCS lock files for this stage only."
+    expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_state_prefix}\") && resource.name.endsWith(\".tflock\")"
+  }
+}
+
 resource "google_project_iam_member" "apply" {
   project = var.gcp_project_id
   role    = google_project_iam_custom_role.apply.id
