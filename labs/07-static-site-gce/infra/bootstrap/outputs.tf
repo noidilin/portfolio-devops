@@ -23,6 +23,11 @@ output "github_image_push_role_arn" {
   value       = aws_iam_role.github_image_push.arn
 }
 
+output "github_image_pull_role_arn" {
+  description = "GitHub Actions OIDC role ARN for pulling immutable canonical images from ECR from main."
+  value       = aws_iam_role.github_image_pull.arn
+}
+
 output "artifact_registry_repository_id" {
   description = "Artifact Registry Docker repository ID used as the GCE mirror destination."
   value       = google_artifact_registry_repository.mirror.repository_id
