@@ -78,7 +78,7 @@ output "github_image_push_role_arn" {
   value       = aws_iam_role.github_image_push.arn
 }
 
-output "github_apply_role_arn" {
-  description = "AWS GitHub Actions OIDC role ARN for approved bootstrap apply jobs."
-  value       = aws_iam_role.github_apply.arn
+output "github_image_pull_role_arn" {
+  description = "AWS GitHub Actions OIDC role ARN for pulling immutable images from ECR in approved deploy jobs."
+  value       = aws_iam_role.github_image_pull.arn
 }

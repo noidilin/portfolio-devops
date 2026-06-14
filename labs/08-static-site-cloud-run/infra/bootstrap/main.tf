@@ -135,6 +135,7 @@ resource "google_project_iam_custom_role" "apply" {
     "artifactregistry.repositories.update",
     "iam.roles.get",
     "iam.roles.list",
+    "iam.serviceAccounts.actAs",
     "iam.serviceAccounts.get",
     "iam.serviceAccounts.getIamPolicy",
     "iam.serviceAccounts.list",
@@ -245,10 +246,10 @@ resource "aws_iam_role" "github_image_push" {
   tags = local.aws_tags
 }
 
-resource "aws_iam_role" "github_apply" {
-  name                 = "${local.name_prefix}-github-apply"
+resource "aws_iam_role" "github_image_pull" {
+  name                 = "${local.name_prefix}-github-image-pull"
   permissions_boundary = local.permissions_boundary_arn
-  assume_role_policy   = data.aws_iam_policy_document.github_apply_assume_role.json
+  assume_role_policy   = data.aws_iam_policy_document.github_image_pull_assume_role.json
 
   tags = local.aws_tags
 }
@@ -319,9 +320,9 @@ resource "aws_iam_policy" "github_image_push" {
   tags = local.aws_tags
 }
 
-resource "aws_iam_policy" "github_apply" {
-  name        = "${local.name_prefix}-github-apply"
-  description = "Apply and ECR pull permissions for Lab 08 Cloud Run bootstrap AWS resources."
+resource "aws_iam_policy" "github_image_pull" {
+  name        = "${local.name_prefix}-github-image-pull"
+  description = "ECR pull permissions for ${local.ecr_repository_name}."
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -333,7 +334,7 @@ resource "aws_iam_policy" "github_apply" {
         Resource = "*"
       },
       {
-        Sid    = "AllowRepositoryRead"
+        Sid    = "AllowRepositoryPull"
         Effect = "Allow"
         Action = [
           "ecr:BatchGetImage",
@@ -361,7 +362,7 @@ resource "aws_iam_role_policy_attachment" "github_image_push" {
   policy_arn = aws_iam_policy.github_image_push.arn
 }
 
-resource "aws_iam_role_policy_attachment" "github_apply" {
-  role       = aws_iam_role.github_apply.name
-  policy_arn = aws_iam_policy.github_apply.arn
+resource "aws_iam_role_policy_attachment" "github_image_pull" {
+  role       = aws_iam_role.github_image_pull.name
+  policy_arn = aws_iam_policy.github_image_pull.arn
 }
