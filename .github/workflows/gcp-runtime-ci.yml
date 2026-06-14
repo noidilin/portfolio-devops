@@ -1,0 +1,227 @@
+name: gcp-runtime-ci
+
+# Separate GCP pull-request CI for the GCE (Lab 07) and Cloud Run (Lab 08)
+# runtime stage roots. Mirrors the AWS ec2-ecs-ci prior art (shared app
+# checks, per-lab Docker smoke, reviewer-friendly Terraform plan comment) but
+# authenticates to GCP through Workload Identity Federation and the per-lab GCP
+# plan identities. The workflow only plans: it never applies, destroys, pushes
+# to ECR, or mirrors to Artifact Registry.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/cidr-calculator/**"
+      - "labs/07-static-site-gce/**"
+      - "labs/08-static-site-cloud-run/**"
+      - ".github/workflows/gcp-runtime-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GCP_PROJECT_ID: portfolio-devops-labs
+  GCP_REGION: asia-northeast1
+  GCP_STATE_BUCKET: portfolio-devops-labs-tf-state
+  GCP_WIF_PROVIDER: projects/993692022673/locations/global/workloadIdentityPools/github-actions/providers/github
+
+concurrency:
+  group: gcp-runtime-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-labs:
+    name: Detect changed GCP runtime labs
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_labs: ${{ steps.detect.outputs.has_labs }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          include_07=false
+          include_08=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual re-runs validate both runtime stages end-to-end.
+            include_07=true
+            include_08=true
+          else
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+            echo "$CHANGED"
+
+            # Shared app changes and this workflow file select both GCP labs.
+            if grep -Eq '^(apps/cidr-calculator/|\.github/workflows/gcp-runtime-ci\.yml)' <<<"$CHANGED"; then
+              include_07=true
+              include_08=true
+            fi
+            if grep -q '^labs/07-static-site-gce/' <<<"$CHANGED"; then include_07=true; fi
+            if grep -q '^labs/08-static-site-cloud-run/' <<<"$CHANGED"; then include_08=true; fi
+          fi
+
+          MATRIX=$(INCLUDE_07="$include_07" INCLUDE_08="$include_08" node <<'NODE'
+          const labs = [];
+          if (process.env.INCLUDE_07 === 'true') labs.push({
+            id: '07-static-site-gce',
+            path: 'labs/07-static-site-gce',
+            app_path: 'apps/cidr-calculator',
+            app_toolchain_path: 'apps/cidr-calculator',
+            build_context: 'apps/cidr-calculator',
+            // 8090/8091 belong to the AWS EC2/ECS labs; 8092 keeps GCE distinct.
+            port: 8092,
+            gcp_zone: 'asia-northeast1-a',
+            artifact_registry_repository_id: 'devops-static-site-gce-stage-cidr-calculator',
+            state_prefix: 'gcp/runtime/labs/07-static-site-gce/stage',
+            gcp_plan_service_account: 'devops-gce-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com'
+          });
+          if (process.env.INCLUDE_08 === 'true') labs.push({
+            id: '08-static-site-cloud-run',
+            path: 'labs/08-static-site-cloud-run',
+            app_path: 'apps/cidr-calculator',
+            app_toolchain_path: 'apps/cidr-calculator',
+            build_context: 'apps/cidr-calculator',
+            // 8093 keeps Cloud Run distinct from GCE (8092) and AWS labs.
+            port: 8093,
+            gcp_zone: '',
+            artifact_registry_repository_id: 'devops-static-site-cloud-run-stage-cidr-calculator',
+            state_prefix: 'gcp/runtime/labs/08-static-site-cloud-run/stage',
+            gcp_plan_service_account: 'lab-08-cloudrun-plan@portfolio-devops-labs.iam.gserviceaccount.com'
+          });
+          process.stdout.write(JSON.stringify(labs));
+          NODE
+          )
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then echo "has_labs=false" >> "$GITHUB_OUTPUT"; else echo "has_labs=true" >> "$GITHUB_OUTPUT"; fi
+
+  check-lab:
+    name: ${{ matrix.lab.id }} app + Docker + GCP plan
+    needs: detect-labs
+    if: needs.detect-labs.outputs.has_labs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      # Least-privilege per job: read repo, exchange OIDC for GCP WIF, post plan.
+      contents: read
+      id-token: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # Shared CIDR Calculator app checks (install/lint/test/build) per lab.
+      - name: Install app toolchain
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        with:
+          working_directory: ${{ matrix.lab.app_toolchain_path }}
+      - name: App checks
+        working-directory: ${{ matrix.lab.app_path }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm test
+          pnpm build
+
+      # Lab-specific local image name and non-conflicting smoke port.
+      - name: Docker build and local smoke
+        working-directory: ${{ matrix.lab.build_context }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cidr-calculator:ci-${GITHUB_SHA}-${{ matrix.lab.id }}"
+          NAME="cidr-ci-${GITHUB_RUN_ID}-${{ matrix.lab.id }}"
+          docker build -t "$IMAGE" .
+          docker run --rm -d --name "$NAME" -p "${{ matrix.lab.port }}:80" "$IMAGE"
+          trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS "http://localhost:${{ matrix.lab.port }}" | grep -q "CIDR Calculator"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs "$NAME"
+          exit 1
+
+      - uses: hashicorp/setup-terraform@v3
+
+      # GCP authority only: exchange the GitHub OIDC token through Workload
+      # Identity Federation and impersonate the lab-specific GCP plan service
+      # account. No GCP service account key is downloaded, stored, or required.
+      # Runtime stage roots are GCP-only, so no AWS credentials are needed here.
+      - name: Authenticate to GCP through WIF plan identity
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ matrix.lab.gcp_plan_service_account }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Write CI backend and variable files
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket = "${GCP_STATE_BUCKET}"
+          prefix = "${{ matrix.lab.state_prefix }}"
+          EOF_BACKEND
+
+          # image_tag must be an immutable sha-<40 hex> tag; the plan references
+          # the Artifact Registry image string but never pulls, pushes, or
+          # mirrors it, so the tag need not exist in Artifact Registry yet.
+          cat > ci.auto.tfvars <<EOF_TFVARS
+          gcp_project_id                  = "${GCP_PROJECT_ID}"
+          gcp_region                      = "${GCP_REGION}"
+          artifact_registry_repository_id = "${{ matrix.lab.artifact_registry_repository_id }}"
+          image_tag                       = "sha-${GITHUB_SHA}"
+          EOF_TFVARS
+
+          # Lab 07 (GCE) also pins a zone for the single VM.
+          if [ -n "${{ matrix.lab.gcp_zone }}" ]; then
+            printf '\ngcp_zone = "%s"\n' "${{ matrix.lab.gcp_zone }}" >> ci.auto.tfvars
+          fi
+
+      - name: Terraform fmt, validate, plan
+        id: tfplan
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive ../..
+          terraform init -backend-config=backend.hcl
+          terraform validate
+          # Plan only: proves GCP WIF plan-identity access without apply,
+          # destroy, runtime deployment, image push, or Artifact Registry mirror.
+          # -refresh=false avoids requiring compute.instances.get / run.services
+          # refresh permissions that the pragmatic per-lab plan role omits, and
+          # -lock=false keeps PR plans from failing when a manual apply holds the
+          # remote state lock.
+          terraform plan -refresh=false -input=false -lock=false -no-color | tee plan.txt
+
+      - name: Comment Terraform plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('${{ matrix.lab.path }}/infra/stage/plan.txt', 'utf8');
+            const truncated = plan.length > 60000 ? plan.slice(0, 60000) + '\n\n...truncated...' : plan;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### Terraform plan: ${{ matrix.lab.id }}\n\n\`\`\`terraform\n${truncated}\n\`\`\``
+            });
