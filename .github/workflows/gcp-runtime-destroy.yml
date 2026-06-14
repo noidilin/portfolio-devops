@@ -1,0 +1,186 @@
+name: gcp-runtime-destroy
+
+# Approved manual teardown for the disposable GCP runtime stage only. The
+# selected GitHub Environment gates the destroy before the workflow exchanges
+# OIDC for the lab's GCP apply service account through Workload Identity
+# Federation. Bootstrap resources stay outside this Terraform root.
+on:
+  workflow_dispatch:
+    inputs:
+      lab:
+        description: "GCP runtime lab to destroy"
+        required: true
+        type: choice
+        options:
+          - "07-static-site-gce"
+          - "08-static-site-cloud-run"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcp-runtime-destroy-${{ inputs.lab }}
+  cancel-in-progress: false
+
+jobs:
+  select-lab:
+    name: Select GCP runtime lab
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_registry_repository_id: ${{ steps.select.outputs.artifact_registry_repository_id }}
+      apply_role_id: ${{ steps.select.outputs.apply_role_id }}
+      apply_service_account: ${{ steps.select.outputs.apply_service_account }}
+      environment: ${{ steps.select.outputs.environment }}
+      gcp_zone: ${{ steps.select.outputs.gcp_zone }}
+      lab_path: ${{ steps.select.outputs.lab_path }}
+      runtime_kind: ${{ steps.select.outputs.runtime_kind }}
+      runtime_state_prefix: ${{ steps.select.outputs.runtime_state_prefix }}
+    steps:
+      - id: select
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.lab }}" in
+            07-static-site-gce)
+              echo "artifact_registry_repository_id=devops-static-site-gce-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
+              echo "apply_role_id=lab07GceApply" >> "$GITHUB_OUTPUT"
+              echo "apply_service_account=devops-gce-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com" >> "$GITHUB_OUTPUT"
+              echo "environment=lab-07-stage" >> "$GITHUB_OUTPUT"
+              echo "gcp_zone=asia-northeast1-a" >> "$GITHUB_OUTPUT"
+              echo "lab_path=labs/07-static-site-gce" >> "$GITHUB_OUTPUT"
+              echo "runtime_kind=gce" >> "$GITHUB_OUTPUT"
+              echo "runtime_state_prefix=gcp/runtime/labs/07-static-site-gce/stage" >> "$GITHUB_OUTPUT"
+              ;;
+            08-static-site-cloud-run)
+              echo "artifact_registry_repository_id=devops-static-site-cloud-run-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
+              echo "apply_role_id=lab08CloudRunApply" >> "$GITHUB_OUTPUT"
+              echo "apply_service_account=lab-08-cloudrun-apply@portfolio-devops-labs.iam.gserviceaccount.com" >> "$GITHUB_OUTPUT"
+              echo "environment=lab-08-stage" >> "$GITHUB_OUTPUT"
+              echo "gcp_zone=" >> "$GITHUB_OUTPUT"
+              echo "lab_path=labs/08-static-site-cloud-run" >> "$GITHUB_OUTPUT"
+              echo "runtime_kind=cloud-run" >> "$GITHUB_OUTPUT"
+              echo "runtime_state_prefix=gcp/runtime/labs/08-static-site-cloud-run/stage" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  approved-destroy:
+    name: Approved destroy for ${{ inputs.lab }}
+    needs: select-lab
+    runs-on: ubuntu-latest
+    environment: ${{ needs.select-lab.outputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT_ID: portfolio-devops-labs
+      GCP_REGION: asia-northeast1
+      GCP_STATE_BUCKET: portfolio-devops-labs-tf-state
+      GCP_WIF_PROVIDER: projects/993692022673/locations/global/workloadIdentityPools/github-actions/providers/github
+      SERVICE_NAME: cidr-calculator
+      ARTIFACT_REGISTRY_REPOSITORY_ID: ${{ needs.select-lab.outputs.artifact_registry_repository_id }}
+      GCP_APPLY_ROLE_ID: ${{ needs.select-lab.outputs.apply_role_id }}
+      GCP_APPLY_SERVICE_ACCOUNT: ${{ needs.select-lab.outputs.apply_service_account }}
+      GCP_RUNTIME_STATE_PREFIX: ${{ needs.select-lab.outputs.runtime_state_prefix }}
+      GCP_ZONE: ${{ needs.select-lab.outputs.gcp_zone }}
+      LAB_PATH: ${{ needs.select-lab.outputs.lab_path }}
+      RUNTIME_KIND: ${{ needs.select-lab.outputs.runtime_kind }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to GCP through WIF apply identity
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_APPLY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Install gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Write Terraform backend and destroy variables
+        working-directory: ${{ env.LAB_PATH }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket = "${GCP_STATE_BUCKET}"
+          prefix = "${GCP_RUNTIME_STATE_PREFIX}"
+          EOF_BACKEND
+
+          {
+            echo "gcp_project_id                  = \"${GCP_PROJECT_ID}\""
+            echo "gcp_region                      = \"${GCP_REGION}\""
+            echo "artifact_registry_repository_id = \"${ARTIFACT_REGISTRY_REPOSITORY_ID}\""
+            if [ -n "${GCP_ZONE}" ]; then
+              printf 'gcp_zone = "%s"\n' "${GCP_ZONE}"
+            fi
+          } > destroy.auto.tfvars
+
+      - name: Capture runtime endpoint before destroy
+        id: before
+        working-directory: ${{ env.LAB_PATH }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -backend-config=backend.hcl
+          {
+            echo "service_url=$(terraform output -raw service_url 2>/dev/null || true)"
+            echo "instance_name=$(terraform output -raw instance_name 2>/dev/null || true)"
+            echo "service_name=$(terraform output -raw service_name 2>/dev/null || true)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Terraform destroy selected runtime only
+        working-directory: ${{ env.LAB_PATH }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform destroy -input=false -auto-approve
+
+      - name: Confirm runtime gone and GCP bootstrap remains
+        shell: bash
+        env:
+          INSTANCE_NAME: ${{ steps.before.outputs.instance_name }}
+          SERVICE_URL: ${{ steps.before.outputs.service_url }}
+          CLOUD_RUN_SERVICE_NAME: ${{ steps.before.outputs.service_name }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${SERVICE_URL}" ] && curl -fsS --max-time 15 "${SERVICE_URL}" >/dev/null 2>&1; then
+            echo "Runtime endpoint still responds after destroy: ${SERVICE_URL}" >&2
+            exit 1
+          fi
+
+          case "${RUNTIME_KIND}" in
+            gce)
+              if [ -n "${INSTANCE_NAME}" ] && gcloud compute instances describe "${INSTANCE_NAME}" \
+                --project "${GCP_PROJECT_ID}" \
+                --zone "${GCP_ZONE}" >/dev/null 2>&1; then
+                echo "GCE runtime instance still exists after destroy: ${INSTANCE_NAME}" >&2
+                exit 1
+              fi
+              ;;
+            cloud-run)
+              if [ -n "${CLOUD_RUN_SERVICE_NAME}" ] && gcloud run services describe "${CLOUD_RUN_SERVICE_NAME}" \
+                --project "${GCP_PROJECT_ID}" \
+                --region "${GCP_REGION}" >/dev/null 2>&1; then
+                echo "Cloud Run runtime service still exists after destroy: ${CLOUD_RUN_SERVICE_NAME}" >&2
+                exit 1
+              fi
+              ;;
+          esac
+
+          gcloud artifacts repositories describe "${ARTIFACT_REGISTRY_REPOSITORY_ID}" \
+            --project "${GCP_PROJECT_ID}" \
+            --location "${GCP_REGION}" >/dev/null
+          gcloud storage buckets describe "gs://${GCP_STATE_BUCKET}" >/dev/null
+          gcloud iam service-accounts describe "${GCP_APPLY_SERVICE_ACCOUNT}" \
+            --project "${GCP_PROJECT_ID}" >/dev/null
+          gcloud iam roles describe "${GCP_APPLY_ROLE_ID}" \
+            --project "${GCP_PROJECT_ID}" >/dev/null
+
+          echo "Selected runtime is gone; Artifact Registry, GCS state, apply identity, and custom role remain addressable."

@@ -167,6 +167,18 @@ $(terraform output -raw serial_port_logs_command)
 | SSM Session Manager for inspection | OS Login plus IAP TCP forwarding for SSH |
 | User-data/image changes can replace host | Image tag changes trigger deterministic VM replacement |
 
+## Approved destroy workflow
+
+Use `.github/workflows/gcp-runtime-destroy.yml` for gated runtime teardown:
+
+1. Run **GCP runtime destroy** manually from GitHub Actions.
+2. Select `07-static-site-gce`.
+3. Approve the `lab-07-stage` GitHub Environment prompt.
+
+After approval, the workflow authenticates to GCP through Workload Identity Federation as `devops-gce-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com`, initializes only `labs/07-static-site-gce/infra/stage`, and runs `terraform destroy` against the runtime state prefix `gcp/runtime/labs/07-static-site-gce/stage`. It does not initialize or destroy the shared GCP bootstrap root or the Lab 07 bootstrap root.
+
+The workflow validates teardown by confirming the previous HTTP endpoint no longer responds, the GCE instance is no longer describable, and durable GCP bootstrap resources remain addressable: the GCS state bucket, Artifact Registry repository, apply service account, and apply custom role. AWS-side ECR image history is intentionally outside this GCP-only runtime destroy path and remains owned by the Lab 07 bootstrap resources.
+
 ## Teardown semantics
 
 Destroy only the disposable GCE runtime:
@@ -176,4 +188,4 @@ cd labs/07-static-site-gce/infra/stage
 terraform destroy
 ```
 
-This removes the VM, auto-delete boot disk, ephemeral public IP, firewall rules, VPC/subnet, runtime service account, and runtime IAM binding. It does not remove the shared GCP bootstrap, Lab 07 bootstrap, ECR repository, Artifact Registry repository, image history, GitHub identities, or GCS state bucket.
+This removes the VM, auto-delete boot disk, ephemeral public IP, firewall rules, VPC/subnet, runtime service account, and runtime IAM binding. It does not remove the shared GCP bootstrap, Lab 07 bootstrap, ECR repository, Artifact Registry repository, image history, Workload Identity Federation, plan/apply service accounts, custom roles, GitHub identities, budgets, or GCS state bucket.
