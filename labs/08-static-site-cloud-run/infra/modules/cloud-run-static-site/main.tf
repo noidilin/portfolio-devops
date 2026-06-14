@@ -1,5 +1,6 @@
 locals {
-  cloud_run_service_name       = substr(replace("${var.name_prefix}-${var.service_name}", "_", "-"), 0, 63)
+  # Cloud Run service IDs must be shorter than 50 characters.
+  cloud_run_service_name       = trimsuffix(substr(replace("${var.name_prefix}-${var.service_name}", "_", "-"), 0, 49), "-")
   runtime_service_account_id   = substr(replace("${var.name_prefix}-runtime", "_", "-"), 0, 30)
   runtime_service_account_name = "projects/${var.gcp_project_id}/serviceAccounts/${google_service_account.runtime.email}"
 }
