@@ -23,8 +23,8 @@ resource "terraform_data" "container_image" {
 
   lifecycle {
     precondition {
-      condition     = startswith(var.container_image, "${var.artifact_registry_host}/")
-      error_message = "container_image registry host must match artifact_registry_host."
+      condition     = startswith(var.container_image, "${var.artifact_registry_host}/${var.gcp_project_id}/${var.artifact_registry_repository_id}/")
+      error_message = "container_image must target the configured Artifact Registry host/project/repository."
     }
   }
 }
