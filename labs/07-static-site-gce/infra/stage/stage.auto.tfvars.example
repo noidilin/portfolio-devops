@@ -1,0 +1,33 @@
+# Copy to stage.auto.tfvars and adjust before applying. Keep committed values as placeholders only.
+
+gcp_project_id = "example-devops-labs"
+gcp_region     = "asia-northeast1"
+gcp_zone       = "asia-northeast1-a"
+
+environment  = "stage"
+project_name = "static-site-gce"
+service_name = "cidr-calculator"
+
+# From labs/07-static-site-gce/infra/bootstrap output artifact_registry_repository_id.
+artifact_registry_repository_id = "devops-static-site-gce-stage-cidr-calculator"
+
+# Mirror this exact immutable tag into Artifact Registry before applying runtime Terraform.
+image_tag = "sha-0000000000000000000000000000000000000000"
+
+# Shared CIDR Calculator Nginx image listens on port 80.
+container_port = 80
+
+# Small lab-sized VM defaults.
+machine_type      = "e2-micro"
+boot_disk_size_gb = 10
+boot_image_project = "ubuntu-os-cloud"
+boot_image_family  = "ubuntu-2404-lts-amd64"
+
+# Dedicated runtime network defaults.
+subnet_cidr       = "10.70.0.0/24"
+http_source_ranges = ["0.0.0.0/0"]
+
+# IAP TCP forwarding range only; no public SSH ingress is created.
+iap_ssh_source_ranges = ["35.235.240.0/20"]
+
+labels = {}

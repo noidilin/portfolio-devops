@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly CONTAINER_IMAGE="${container_image}"
+readonly CONTAINER_NAME="${container_name}"
+readonly CONTAINER_PORT="${container_port}"
+readonly ARTIFACT_REGISTRY_HOST="${artifact_registry_host}"
+
+log() {
+  echo "[$(date --iso-8601=seconds)] $*"
+}
+
+metadata_token() {
+  curl -fsS \
+    -H "Metadata-Flavor: Google" \
+    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" \
+    | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+}
+
+log "Installing Docker runtime"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y docker.io ca-certificates curl
+systemctl enable --now docker
+
+log "Authenticating Docker to Artifact Registry $${ARTIFACT_REGISTRY_HOST}"
+TOKEN="$(metadata_token)"
+if [[ -z "$${TOKEN}" ]]; then
+  echo "Failed to read metadata server access token" >&2
+  exit 1
+fi
+printf '%s' "$${TOKEN}" | docker login -u oauth2accesstoken --password-stdin "https://$${ARTIFACT_REGISTRY_HOST}"
+
+log "Pulling $${CONTAINER_IMAGE}"
+docker pull "$${CONTAINER_IMAGE}"
+
+log "Starting $${CONTAINER_NAME} on host port 80 to container port $${CONTAINER_PORT}"
+docker rm -f "$${CONTAINER_NAME}" >/dev/null 2>&1 || true
+docker run \
+  --detach \
+  --restart unless-stopped \
+  --name "$${CONTAINER_NAME}" \
+  --publish "80:$${CONTAINER_PORT}" \
+  "$${CONTAINER_IMAGE}"
+
+log "Container status"
+docker ps --filter "name=$${CONTAINER_NAME}"
