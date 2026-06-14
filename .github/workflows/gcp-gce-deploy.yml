@@ -36,6 +36,7 @@ env:
   ARTIFACT_REGISTRY_REPOSITORY_ID: devops-static-site-gce-stage-cidr-calculator
   GCP_RUNTIME_STATE_PREFIX: gcp/runtime/labs/07-static-site-gce/stage
   AWS_IMAGE_PUSH_ROLE_ARN: arn:aws:iam::549475122024:role/devops-static-site-gce-stage-github-image-push
+  AWS_ECR_PULL_ROLE_ARN: arn:aws:iam::549475122024:role/devops-static-site-gce-stage-github-image-pull
   GCP_PLAN_SERVICE_ACCOUNT: devops-gce-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com
   GCP_APPLY_SERVICE_ACCOUNT: devops-gce-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com
 
@@ -49,7 +50,7 @@ jobs:
     outputs:
       ecr_repository_url: ${{ steps.ecr.outputs.ecr_repository_url }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
 
@@ -86,7 +87,7 @@ jobs:
           exit 1
 
       - name: Authenticate to AWS for ECR push/reuse only
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ env.AWS_IMAGE_PUSH_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -122,10 +123,10 @@ jobs:
             echo "AWS_DEFAULT_REGION="
           } >> "$GITHUB_ENV"
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
 
       - name: Authenticate to GCP through WIF plan identity
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
           service_account: ${{ env.GCP_PLAN_SERVICE_ACCOUNT }}
@@ -169,14 +170,14 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
 
       - name: Authenticate to AWS for ECR pull only
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
-          role-to-assume: ${{ env.AWS_IMAGE_PUSH_ROLE_ARN }}
+          role-to-assume: ${{ env.AWS_ECR_PULL_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Pull canonical ECR image
@@ -199,7 +200,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Authenticate to GCP through WIF apply identity
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
           service_account: ${{ env.GCP_APPLY_SERVICE_ACCOUNT }}
@@ -207,7 +208,7 @@ jobs:
           export_environment_variables: true
 
       - name: Install gcloud
-        uses: google-github-actions/setup-gcloud@v3
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
 
       - name: Mirror immutable tag to Artifact Registry
         shell: bash
@@ -220,7 +221,7 @@ jobs:
           docker tag "${ECR_REPOSITORY_URL}:${IMAGE_TAG}" "$AR_IMAGE"
           docker push "$AR_IMAGE"
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
 
       - name: Write Terraform backend and variable files
         working-directory: ${{ env.LAB_PATH }}/infra/stage
