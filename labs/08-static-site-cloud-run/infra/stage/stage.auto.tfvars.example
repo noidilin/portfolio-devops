@@ -1,0 +1,25 @@
+# Copy to stage.auto.tfvars and adjust before applying. Keep committed values as placeholders only.
+
+gcp_project_id = "example-devops-labs"
+gcp_region     = "asia-northeast1"
+
+environment  = "stage"
+project_name = "static-site-cloud-run"
+service_name = "cidr-calculator"
+
+# From labs/08-static-site-cloud-run/infra/bootstrap output artifact_registry_repository_id.
+artifact_registry_repository_id = "devops-static-site-cloud-run-stage-cidr-calculator"
+
+# Mirror this exact immutable tag into Artifact Registry before applying runtime Terraform.
+image_tag = "sha-0000000000000000000000000000000000000000"
+
+# Shared CIDR Calculator Nginx image listens on port 80.
+container_port = 80
+
+# Small lab-sized Cloud Run defaults: scale to zero, cap burst scale at two instances.
+cpu                = "1"
+memory             = "256Mi"
+min_instance_count = 0
+max_instance_count = 2
+
+labels = {}
