@@ -1,0 +1,3 @@
+# Copy to backend.hcl and set bucket from infra/gcp-bootstrap/shared-project output state_bucket_name.
+bucket = "example-devops-labs-tf-state"
+prefix = "gcp/runtime/labs/08-static-site-cloud-run/stage"
