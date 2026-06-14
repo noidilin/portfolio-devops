@@ -201,14 +201,19 @@ jobs:
         run: |
           set -euo pipefail
           terraform fmt -check -recursive ../..
-          terraform init -backend-config=backend.hcl
+          # Terraform's GCS backend can take a native state lock during init
+          # while loading remote state, before the later plan -lock=false flag
+          # applies. PR CI uses read-oriented plan identities that intentionally
+          # cannot create/delete *.tflock objects, so disable locking for both
+          # backend init and the speculative plan.
+          terraform init -backend-config=backend.hcl -lock=false
           terraform validate
           # Plan only: proves GCP WIF plan-identity access without apply,
           # destroy, runtime deployment, image push, or Artifact Registry mirror.
           # -refresh=false avoids requiring compute.instances.get / run.services
           # refresh permissions that the pragmatic per-lab plan role omits, and
-          # -lock=false keeps PR plans from failing when a manual apply holds the
-          # remote state lock.
+          # -lock=false keeps PR plans from requiring GCS lock-object write
+          # permissions or failing when a manual apply holds the remote lock.
           terraform plan -refresh=false -input=false -lock=false -no-color | tee plan.txt
 
       - name: Comment Terraform plan
