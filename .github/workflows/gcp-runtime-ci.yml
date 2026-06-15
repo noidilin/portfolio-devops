@@ -194,7 +194,7 @@ jobs:
             printf '\ngcp_zone = "%s"\n' "${{ matrix.lab.gcp_zone }}" >> ci.auto.tfvars
           fi
 
-      - name: Terraform fmt, validate, plan
+      - name: Terraform fmt, validate, test, plan
         id: tfplan
         working-directory: ${{ matrix.lab.path }}/infra/stage
         shell: bash
@@ -207,6 +207,7 @@ jobs:
           # prefixes; they still cannot mutate Terraform state objects.
           terraform init -backend-config=backend.hcl
           terraform validate
+          terraform test
           # Plan only: proves GCP WIF plan-identity access without apply,
           # destroy, runtime deployment, image push, or Artifact Registry mirror.
           # -refresh=false avoids requiring compute.instances.get / run.services
