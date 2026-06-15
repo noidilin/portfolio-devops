@@ -47,3 +47,33 @@ output "subnet_id" {
   description = "Subnet selected for the EC2 runtime host."
   value       = local.selected_subnet
 }
+
+output "instance_type" {
+  description = "EC2 instance type used for the runtime host."
+  value       = aws_instance.service.instance_type
+}
+
+output "root_volume_size_gb" {
+  description = "Root EBS volume size in GiB."
+  value       = var.root_volume_size_gb
+}
+
+output "root_volume_type" {
+  description = "Root EBS volume type."
+  value       = aws_instance.service.root_block_device[0].volume_type
+}
+
+output "root_volume_encrypted" {
+  description = "Whether the runtime host root EBS volume is encrypted."
+  value       = aws_instance.service.root_block_device[0].encrypted
+}
+
+output "container_port" {
+  description = "Container and host HTTP port exposed by the runtime."
+  value       = local.http_port
+}
+
+output "ssh_ingress_enabled" {
+  description = "Whether the learner-facing security group exposes SSH ingress. Lab 05 uses SSM Session Manager instead."
+  value       = false
+}
