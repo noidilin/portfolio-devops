@@ -62,6 +62,56 @@ output "cloudwatch_log_group_name" {
   value       = module.runtime.cloudwatch_log_group_name
 }
 
+output "cpu" {
+  description = "ECS Express task CPU units."
+  value       = module.runtime.cpu
+}
+
+output "memory" {
+  description = "ECS Express task memory in MiB."
+  value       = module.runtime.memory
+}
+
+output "container_port" {
+  description = "Primary container port exposed by ECS Express."
+  value       = module.runtime.container_port
+}
+
+output "health_check_path" {
+  description = "HTTP path ECS Express uses for health checks."
+  value       = module.runtime.health_check_path
+}
+
+output "min_task_count" {
+  description = "Minimum ECS Express task count."
+  value       = module.runtime.min_task_count
+}
+
+output "max_task_count" {
+  description = "Maximum ECS Express task count."
+  value       = module.runtime.max_task_count
+}
+
+output "auto_scaling_metric" {
+  description = "Metric used by ECS Express auto scaling."
+  value       = module.runtime.auto_scaling_metric
+}
+
+output "auto_scaling_target_value" {
+  description = "Target value for ECS Express auto scaling."
+  value       = module.runtime.auto_scaling_target_value
+}
+
+output "log_retention_days" {
+  description = "CloudWatch Logs retention in days."
+  value       = module.runtime.log_retention_days
+}
+
+output "wait_for_steady_state" {
+  description = "Whether Terraform waits for ECS Express service steady state."
+  value       = module.runtime.wait_for_steady_state
+}
+
 output "describe_express_service_command" {
   description = "Command to inspect the ECS Express Gateway service."
   value       = "aws ecs describe-express-gateway-service --region ${var.aws_region} --service-arn ${module.runtime.express_service_arn}"
