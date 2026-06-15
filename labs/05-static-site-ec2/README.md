@@ -99,6 +99,14 @@ cp stage.auto.tfvars.example stage.auto.tfvars
 terraform init -backend-config=backend.hcl
 ```
 
+The bootstrap root uses the same local-copy pattern when you need to initialise durable prerequisites locally:
+
+```sh
+cd infra/bootstrap
+cp backend.hcl.example backend.hcl
+terraform init -backend-config=backend.hcl
+```
+
 For local syntax validation without remote state:
 
 ```sh
@@ -139,8 +147,6 @@ This lab has GitHub Actions support for PR checks, manual approved deploys, and 
 - runtime: `infra/stage/` (EC2 host only)
 
 Create GitHub Environment `lab-05-stage` with required reviewers before using deploy/destroy. The PR-check CI workflow runs app lint/test/build, a Docker local smoke test from `apps/cidr-calculator`, and a Terraform plan; it does not push images to ECR. The deploy workflow reruns the checks, pushes or reuses this lab's ECR image as `sha-${GITHUB_SHA}`, then applies only `infra/stage` with that image tag after environment approval. Dispatch `Lab container deploy` from `main`, choose `05-static-site-ec2`, and approve the environment gate. Dispatch `Lab container destroy` to destroy only the EC2 runtime; ECR, OIDC, roles, and image history remain.
-
-See [`../../docs/capstone/cicd-for-ec2-ecs-static-site.md`](../../docs/capstone/cicd-for-ec2-ecs-static-site.md) for the full runbook.
 
 ## Deploy a pushed image tag
 
