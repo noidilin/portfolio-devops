@@ -22,6 +22,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: ec2-ecs-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   detect-labs:
     if: github.ref == 'refs/heads/main'
@@ -30,7 +34,7 @@ jobs:
       matrix: ${{ steps.detect.outputs.matrix }}
       has_labs: ${{ steps.detect.outputs.has_labs }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -73,6 +77,8 @@ jobs:
             build_context: 'apps/cidr-calculator',
             port: 8090,
             environment: 'lab-05-stage',
+            state_bucket: 'noidilin-tf-state',
+            state_key: 'labs/05-static-site-ec2/infra/stage/terraform.tfstate',
             ecr_repository_name: 'devops-static-site-ec2-stage-cidr-calculator',
             plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan',
             image_push_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-image-push',
@@ -86,6 +92,8 @@ jobs:
             build_context: 'apps/cidr-calculator',
             port: 8091,
             environment: 'lab-06-stage',
+            state_bucket: 'noidilin-tf-state',
+            state_key: 'labs/06-static-site-ecs/infra/stage/terraform.tfstate',
             ecr_repository_name: 'devops-static-site-ecs-stage-cidr-calculator',
             plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan',
             image_push_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-image-push',
@@ -107,7 +115,7 @@ jobs:
       matrix:
         lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
       - name: Install app toolchain
@@ -131,7 +139,7 @@ jobs:
           docker build -t "$IMAGE" .
           docker run --rm -d --name "$NAME" -p "${{ matrix.lab.port }}:80" "$IMAGE"
           trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
-          for attempt in {1..30}; do
+          for _ in {1..30}; do
             if curl -fsS "http://localhost:${{ matrix.lab.port }}" | grep -q "CIDR Calculator"; then exit 0; fi
             sleep 2
           done
@@ -141,18 +149,31 @@ jobs:
         uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
           working_directory: ${{ matrix.lab.path }}
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ matrix.lab.plan_role_arn }}
           aws-region: ap-northeast-1
-      - name: Terraform pre-plan
+      - name: Write Terraform backend config
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket       = "${{ matrix.lab.state_bucket }}"
+          key          = "${{ matrix.lab.state_key }}"
+          region       = "ap-northeast-1"
+          use_lockfile = true
+          encrypt      = true
+          EOF_BACKEND
+      - name: Terraform validate, contract test, and pre-approval plan
         working-directory: ${{ matrix.lab.path }}/infra/stage
         run: |
           terraform fmt -check -recursive ../..
           terraform init -backend-config=backend.hcl
           terraform validate
+          terraform test
           terraform plan -input=false -no-color -var="image_tag=sha-${GITHUB_SHA}"
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ matrix.lab.image_push_role_arn }}
           aws-region: ap-northeast-1
@@ -183,16 +204,28 @@ jobs:
         lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
     environment: ${{ matrix.lab.environment }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
       - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
           working_directory: ${{ matrix.lab.path }}
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ matrix.lab.apply_role_arn }}
           aws-region: ap-northeast-1
+      - name: Write Terraform backend config
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket       = "${{ matrix.lab.state_bucket }}"
+          key          = "${{ matrix.lab.state_key }}"
+          region       = "ap-northeast-1"
+          use_lockfile = true
+          encrypt      = true
+          EOF_BACKEND
       - name: Terraform apply
         working-directory: ${{ matrix.lab.path }}/infra/stage
         shell: bash
@@ -208,7 +241,7 @@ jobs:
         run: |
           set -euo pipefail
           SERVICE_URL=$(terraform output -raw service_url)
-          for attempt in {1..60}; do
+          for _ in {1..60}; do
             BODY=$(curl -fsSL "$SERVICE_URL" || true)
             if printf '%s' "$BODY" | grep -q "CIDR Calculator"; then
               echo "Smoke test passed: $SERVICE_URL"
