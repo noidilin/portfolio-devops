@@ -8,9 +8,9 @@ The lab consumes an image that has already been built from `../../apps/cidr-calc
 
 1. Apply `infra/gcp-bootstrap/shared-project` to create the shared GCS Terraform state bucket, required APIs, and GitHub Workload Identity Federation foundations.
 2. Apply `labs/07-static-site-gce/infra/bootstrap` to create the durable Lab 07 ECR repository, Artifact Registry mirror, CI identities, and runtime state prefix.
-3. Mirror the exact immutable image tag you want to deploy into Artifact Registry before applying this runtime root.
+3. Use the approved deploy workflow to build/push the canonical ECR image, mirror the exact immutable tag into Artifact Registry, and apply this runtime root.
 
-Runtime destroy intentionally leaves bootstrap resources intact: ECR image history, Artifact Registry repository, CI identities, and GCS state bucket survive.
+Runtime destroy intentionally leaves bootstrap resources intact: ECR image history, Artifact Registry repository, cloud identities/roles, Workload Identity Federation, and GCS/Terraform state foundations survive.
 
 ## Infrastructure layout
 
@@ -46,11 +46,13 @@ The committed backend example uses placeholder values only. The intended state p
 gcp/runtime/labs/07-static-site-gce/stage
 ```
 
-For local syntax validation before configuring remote state:
+For local syntax and contract validation before configuring remote state:
 
 ```sh
 terraform init -backend=false
+terraform fmt -recursive -check ../..
 terraform validate
+terraform test
 ```
 
 ## Configure variables
@@ -99,17 +101,26 @@ You can also inspect generated mirror commands after Terraform init:
 terraform output docker_mirror_commands
 ```
 
-## Manual plan/apply flow
+## Local validation and optional plan
+
+The normal provisioning path is **Approved Deploy** through GitHub Actions, not local `terraform apply`. Use local Terraform commands to validate the Runtime Stage before opening a PR or requesting an approved deploy:
 
 ```sh
 cd labs/07-static-site-gce/infra/stage
-terraform fmt -recursive ../..
+terraform init -backend=false
+terraform fmt -recursive -check ../..
 terraform validate
-terraform plan
-terraform apply
+terraform test
 ```
 
-The apply completes after the VM is created. The startup script then installs Docker and starts the container; this can take a few minutes after Terraform reports success.
+If you have configured `backend.hcl` and `stage.auto.tfvars` locally, you can also run a plan-only preview without changing live infrastructure:
+
+```sh
+terraform init -backend-config=backend.hcl
+terraform plan
+```
+
+The approved apply completes after the VM is created. The startup script then installs Docker and starts the container; this can take a few minutes after Terraform reports success.
 
 ## Smoke test
 
@@ -167,7 +178,11 @@ $(terraform output -raw serial_port_logs_command)
 | SSM Session Manager for inspection | OS Login plus IAP TCP forwarding for SSH |
 | User-data/image changes can replace host | Image tag changes trigger deterministic VM replacement |
 
-## Approved destroy workflow
+## Approved deploy and destroy workflows
+
+Create GitHub Environment `lab-07-stage` before using deploy/destroy, and configure its required reviewers in the GitHub repository settings.
+
+Use `.github/workflows/gcp-gce-deploy.yml` as the normal provisioning path. The workflow runs app checks, Docker smoke tests, Terraform validation, `terraform test`, and a pre-approval plan. After `lab-07-stage` approval, it mirrors the immutable image tag into Artifact Registry and applies only Runtime Stage resources in `labs/07-static-site-gce/infra/stage`.
 
 Use `.github/workflows/gcp-runtime-destroy.yml` for gated runtime teardown:
 
@@ -181,11 +196,4 @@ The workflow validates teardown by confirming the previous HTTP endpoint no long
 
 ## Teardown semantics
 
-Destroy only the disposable GCE runtime:
-
-```sh
-cd labs/07-static-site-gce/infra/stage
-terraform destroy
-```
-
-This removes the VM, auto-delete boot disk, ephemeral public IP, firewall rules, VPC/subnet, runtime service account, and runtime IAM binding. It does not remove the shared GCP bootstrap, Lab 07 bootstrap, ECR repository, Artifact Registry repository, image history, Workload Identity Federation, plan/apply service accounts, custom roles, GitHub identities, budgets, or GCS state bucket.
+Destroy only the disposable GCE Runtime Stage through the approved destroy workflow. Destroy removes only Runtime Stage resources: the VM, auto-delete boot disk, ephemeral public IP, firewall rules, VPC/subnet, runtime service account, and runtime IAM binding. It does not remove the shared GCP bootstrap, Lab 07 bootstrap, ECR repository, Artifact Registry repository, image history, Workload Identity Federation, plan/apply service accounts, custom roles, GitHub identities, budgets, or GCS/Terraform state foundations.

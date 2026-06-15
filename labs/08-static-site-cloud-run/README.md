@@ -8,9 +8,9 @@ The lab consumes an image that has already been built from `../../apps/cidr-calc
 
 1. Apply `infra/gcp-bootstrap/shared-project` to create the shared GCS Terraform state bucket, required APIs, and GitHub Workload Identity Federation foundations.
 2. Apply `labs/08-static-site-cloud-run/infra/bootstrap` to create the durable Lab 08 ECR repository, Artifact Registry mirror, CI identities, and runtime state prefix.
-3. Mirror the exact immutable image tag you want to deploy into Artifact Registry before applying this runtime root.
+3. Use the approved deploy workflow to build/push the canonical ECR image, mirror the exact immutable tag into Artifact Registry, and apply this runtime root.
 
-Runtime destroy intentionally leaves bootstrap resources intact: ECR image history, Artifact Registry repository, CI identities, and GCS state bucket survive.
+Runtime destroy intentionally leaves bootstrap resources intact: ECR image history, Artifact Registry repository, cloud identities/roles, Workload Identity Federation, and GCS/Terraform state foundations survive.
 
 ## Infrastructure layout
 
@@ -43,11 +43,13 @@ The committed backend example uses placeholder values only. The intended state p
 gcp/runtime/labs/08-static-site-cloud-run/stage
 ```
 
-For local syntax validation before configuring remote state:
+For local syntax and contract validation before configuring remote state:
 
 ```sh
 terraform init -backend=false
+terraform fmt -recursive -check ../..
 terraform validate
+terraform test
 ```
 
 ## Configure variables
@@ -96,17 +98,26 @@ You can also inspect generated mirror commands after Terraform init:
 terraform output docker_mirror_commands
 ```
 
-## Manual plan/apply flow
+## Local validation and optional plan
+
+The normal provisioning path is **Approved Deploy** through GitHub Actions, not local `terraform apply`. Use local Terraform commands to validate the Runtime Stage before opening a PR or requesting an approved deploy:
 
 ```sh
 cd labs/08-static-site-cloud-run/infra/stage
-terraform fmt -recursive ../..
+terraform init -backend=false
+terraform fmt -recursive -check ../..
 terraform validate
-terraform plan
-terraform apply
+terraform test
 ```
 
-The apply completes after Cloud Run creates a new revision from the provided Artifact Registry image tag.
+If you have configured `backend.hcl` and `stage.auto.tfvars` locally, you can also run a plan-only preview without changing live infrastructure:
+
+```sh
+terraform init -backend-config=backend.hcl
+terraform plan
+```
+
+The approved apply completes after Cloud Run creates a new revision from the provided Artifact Registry image tag.
 
 ## Smoke test
 
@@ -139,7 +150,11 @@ terraform output list_revisions_command
 | CloudWatch logs and ECS service inspection | Cloud Logging by default plus `gcloud run` service/revision inspection |
 | Optional/default managed networking in the AWS runtime | No VPC connector; public ingress directly to Cloud Run |
 
-## Approved destroy workflow
+## Approved deploy and destroy workflows
+
+Create GitHub Environment `lab-08-stage` before using deploy/destroy, and configure its required reviewers in the GitHub repository settings.
+
+Use `.github/workflows/gcp-cloud-run-deploy.yml` as the normal provisioning path. The workflow runs app checks, Docker smoke tests, Terraform validation, `terraform test`, and a pre-approval plan. After `lab-08-stage` approval, it mirrors the immutable image tag into Artifact Registry and applies only Runtime Stage resources in `labs/08-static-site-cloud-run/infra/stage`.
 
 Use `.github/workflows/gcp-runtime-destroy.yml` for gated runtime teardown:
 
@@ -153,11 +168,4 @@ The workflow validates teardown by confirming the previous HTTPS endpoint no lon
 
 ## Teardown semantics
 
-Destroy only the disposable Cloud Run runtime:
-
-```sh
-cd labs/08-static-site-cloud-run/infra/stage
-terraform destroy
-```
-
-This removes the Cloud Run service and its dedicated runtime service account. It does not remove the shared GCP bootstrap, Lab 08 bootstrap, ECR repository, Artifact Registry repository, image history, Workload Identity Federation, plan/apply service accounts, custom roles, GitHub identities, budgets, or GCS state bucket.
+Destroy only the disposable Cloud Run Runtime Stage through the approved destroy workflow. Destroy removes only Runtime Stage resources: the Cloud Run service and its dedicated runtime service account. It does not remove the shared GCP bootstrap, Lab 08 bootstrap, ECR repository, Artifact Registry repository, image history, Workload Identity Federation, plan/apply service accounts, custom roles, GitHub identities, budgets, or GCS/Terraform state foundations.

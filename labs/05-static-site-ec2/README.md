@@ -115,24 +115,26 @@ terraform init -backend=false
 terraform validate
 ```
 
-### Preview and apply
+### Local validation and optional plan
 
-Preview changes:
+The normal provisioning path is **Approved Deploy** through GitHub Actions, not local `terraform apply`. Use local Terraform commands to validate the Runtime Stage before opening a PR or requesting an approved deploy:
 
 ```sh
 cd infra/stage
-terraform fmt -recursive ../..
+terraform init -backend=false
+terraform fmt -recursive -check ../..
 terraform validate
+terraform test
+```
+
+If you have configured `backend.hcl` and `stage.auto.tfvars` locally, you can also run a plan-only preview without changing live infrastructure:
+
+```sh
+terraform init -backend-config=backend.hcl
 terraform plan
 ```
 
-Create infrastructure:
-
-```sh
-terraform apply
-```
-
-Inspect useful commands/URLs:
+Inspect useful commands/URLs after an approved deploy has applied Runtime Stage resources:
 
 ```sh
 terraform output
@@ -146,7 +148,7 @@ This lab has GitHub Actions support for PR checks, manual approved deploys, and 
 - lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
 - runtime: `infra/stage/` (EC2 host only)
 
-Create GitHub Environment `lab-05-stage` with required reviewers before using deploy/destroy. The PR-check CI workflow runs app lint/test/build, a Docker local smoke test from `apps/cidr-calculator`, and a Terraform plan; it does not push images to ECR. The deploy workflow reruns the checks, pushes or reuses this lab's ECR image as `sha-${GITHUB_SHA}`, then applies only `infra/stage` with that image tag after environment approval. Dispatch `Lab container deploy` from `main`, choose `05-static-site-ec2`, and approve the environment gate. Dispatch `Lab container destroy` to destroy only the EC2 runtime; ECR, OIDC, roles, and image history remain.
+Create GitHub Environment `lab-05-stage` before using deploy/destroy, and configure its required reviewers in the GitHub repository settings. The PR-check CI workflow runs app lint/test/build, a Docker local smoke test from `apps/cidr-calculator`, Terraform validation, `terraform test`, and a Terraform plan; it does not push images to ECR. The deploy workflow reruns the checks, pushes or reuses this lab's ECR image as `sha-${GITHUB_SHA}`, then applies only Runtime Stage resources in `infra/stage` with that image tag after environment approval. Dispatch `Lab container deploy` from `main`, choose `05-static-site-ec2`, and approve the environment gate. Dispatch `Lab container destroy` to destroy only the EC2 runtime. Destroy removes only Runtime Stage resources; Bootstrap resources survive, including the ECR repository and image history, GitHub OIDC cloud identities/roles, permissions boundaries, and Terraform state foundations.
 
 ## Deploy a pushed image tag
 
@@ -189,20 +191,11 @@ cd /path/to/labs/05-static-site-ec2/infra/stage
 terraform output docker_build_tag_push_commands
 ```
 
-### Step 4: apply Terraform with the explicit image tag
+### Step 4: request Approved Deploy with the explicit image tag
 
-Set `image_tag` in `infra/stage/stage.auto.tfvars`:
+The normal deploy path is the `ec2-ecs-deploy` GitHub Actions workflow. Dispatch `Lab container deploy` from `main`, choose `05-static-site-ec2`, and approve the `lab-05-stage` GitHub Environment gate. The workflow passes the immutable `sha-${GITHUB_SHA}` image tag into Terraform and applies only the Runtime Stage.
 
-```hcl
-image_tag = "v1"
-```
-
-Then apply:
-
-```sh
-cd infra/stage
-terraform apply
-```
+For plan-only local inspection, set `image_tag` in `infra/stage/stage.auto.tfvars` and run `terraform plan`; do not use local apply as the learner provisioning path.
 
 Terraform renders the image tag into the EC2 user-data template. The instance boots, installs Docker, authenticates to ECR through its instance role, pulls the exact tagged image, and runs it on port 80.
 
@@ -232,7 +225,7 @@ cidr-calculator:sha-${GITHUB_SHA}
 then a Terraform run outside that pipeline must receive the same tag explicitly:
 
 ```sh
-terraform apply -var="image_tag=sha-<github-sha>"
+terraform plan -var="image_tag=sha-<github-sha>"
 ```
 
 Terraform should not try to derive the tag by running `git rev-parse HEAD`: the
@@ -329,14 +322,9 @@ A single EC2 instance is the simplest runnable shape. There is no load balancer 
 
 ## Teardown
 
-Destroy lab resources:
+Use the `ec2-ecs-destroy` GitHub Actions workflow for approved runtime teardown. Dispatch `Lab container destroy`, choose `05-static-site-ec2`, and approve the `lab-05-stage` GitHub Environment gate.
 
-```sh
-cd infra/stage
-terraform destroy
-```
-
-Runtime destroy leaves the bootstrapped ECR repository and image history intact.
+Destroy removes only Runtime Stage resources such as the EC2 instance, instance profile, and security group. Bootstrap resources survive runtime destroy, including the ECR repository and image history, GitHub OIDC cloud identities/roles, permissions boundaries, and Terraform state foundations.
 
 ## Further reading
 
