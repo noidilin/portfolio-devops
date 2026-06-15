@@ -151,7 +151,7 @@ jobs:
           image_tag                       = "${IMAGE_TAG}"
           EOF_TFVARS
 
-      - name: Terraform fmt, validate, and pre-approval plan
+      - name: Terraform fmt, validate, test, and pre-approval plan
         working-directory: ${{ env.LAB_PATH }}/infra/stage
         shell: bash
         run: |
@@ -159,6 +159,7 @@ jobs:
           terraform fmt -check -recursive ../..
           terraform init -backend-config=backend.hcl
           terraform validate
+          terraform test
           terraform plan -refresh=false -input=false -lock=false -no-color
 
   approve-mirror-apply-smoke:
