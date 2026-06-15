@@ -53,6 +53,56 @@ output "cloudwatch_log_group_name" {
   value       = aws_cloudwatch_log_group.service.name
 }
 
+output "cpu" {
+  description = "ECS Express task CPU units."
+  value       = aws_ecs_express_gateway_service.service.cpu
+}
+
+output "memory" {
+  description = "ECS Express task memory in MiB."
+  value       = aws_ecs_express_gateway_service.service.memory
+}
+
+output "container_port" {
+  description = "Primary container port exposed by ECS Express."
+  value       = aws_ecs_express_gateway_service.service.primary_container[0].container_port
+}
+
+output "health_check_path" {
+  description = "HTTP path ECS Express uses for health checks."
+  value       = aws_ecs_express_gateway_service.service.health_check_path
+}
+
+output "min_task_count" {
+  description = "Minimum ECS Express task count."
+  value       = aws_ecs_express_gateway_service.service.scaling_target[0].min_task_count
+}
+
+output "max_task_count" {
+  description = "Maximum ECS Express task count."
+  value       = aws_ecs_express_gateway_service.service.scaling_target[0].max_task_count
+}
+
+output "auto_scaling_metric" {
+  description = "Metric used by ECS Express auto scaling."
+  value       = aws_ecs_express_gateway_service.service.scaling_target[0].auto_scaling_metric
+}
+
+output "auto_scaling_target_value" {
+  description = "Target value for ECS Express auto scaling."
+  value       = aws_ecs_express_gateway_service.service.scaling_target[0].auto_scaling_target_value
+}
+
+output "log_retention_days" {
+  description = "CloudWatch Logs retention in days."
+  value       = aws_cloudwatch_log_group.service.retention_in_days
+}
+
+output "wait_for_steady_state" {
+  description = "Whether Terraform waits for ECS Express service steady state."
+  value       = aws_ecs_express_gateway_service.service.wait_for_steady_state
+}
+
 output "execution_role_arn" {
   description = "ECS task execution role ARN."
   value       = aws_iam_role.execution.arn
