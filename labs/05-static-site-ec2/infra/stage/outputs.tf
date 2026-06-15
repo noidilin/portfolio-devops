@@ -56,3 +56,33 @@ output "security_group_id" {
   description = "Security group allowing HTTP ingress and no SSH ingress."
   value       = module.runtime.security_group_id
 }
+
+output "instance_type" {
+  description = "Lab-sized EC2 instance type used for the runtime host."
+  value       = module.runtime.instance_type
+}
+
+output "root_volume_size_gb" {
+  description = "Root EBS volume size in GiB for the runtime host."
+  value       = module.runtime.root_volume_size_gb
+}
+
+output "root_volume_type" {
+  description = "Root EBS volume type for the runtime host."
+  value       = module.runtime.root_volume_type
+}
+
+output "root_volume_encrypted" {
+  description = "Whether the runtime host root EBS volume is encrypted."
+  value       = module.runtime.root_volume_encrypted
+}
+
+output "container_port" {
+  description = "HTTP port exposed by the static-site container and EC2 security group."
+  value       = module.runtime.container_port
+}
+
+output "ssh_ingress_enabled" {
+  description = "Whether SSH ingress is exposed. Lab 05 inspection uses SSM Session Manager instead."
+  value       = module.runtime.ssh_ingress_enabled
+}
