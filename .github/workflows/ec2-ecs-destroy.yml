@@ -12,17 +12,24 @@ on:
           - "06-static-site-ecs"
 
 permissions:
-  id-token: write
   contents: read
+
+concurrency:
+  group: ec2-ecs-destroy-${{ inputs.lab }}
+  cancel-in-progress: false
 
 jobs:
   select-lab:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      path: ${{ steps.select.outputs.path }}
-      environment: ${{ steps.select.outputs.environment }}
       apply_role_arn: ${{ steps.select.outputs.apply_role_arn }}
+      ecr_repository_name: ${{ steps.select.outputs.ecr_repository_name }}
+      environment: ${{ steps.select.outputs.environment }}
+      path: ${{ steps.select.outputs.path }}
+      runtime_kind: ${{ steps.select.outputs.runtime_kind }}
+      state_bucket: ${{ steps.select.outputs.state_bucket }}
+      state_key: ${{ steps.select.outputs.state_key }}
     steps:
       - id: select
         shell: bash
@@ -30,34 +37,170 @@ jobs:
           set -euo pipefail
           case "${{ inputs.lab }}" in
             05-static-site-ec2)
-              echo "path=labs/05-static-site-ec2" >> "$GITHUB_OUTPUT"
-              echo "environment=lab-05-stage" >> "$GITHUB_OUTPUT"
               echo "apply_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-apply" >> "$GITHUB_OUTPUT"
+              echo "ecr_repository_name=devops-static-site-ec2-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
+              echo "environment=lab-05-stage" >> "$GITHUB_OUTPUT"
+              echo "path=labs/05-static-site-ec2" >> "$GITHUB_OUTPUT"
+              echo "runtime_kind=ec2" >> "$GITHUB_OUTPUT"
+              echo "state_bucket=noidilin-tf-state" >> "$GITHUB_OUTPUT"
+              echo "state_key=labs/05-static-site-ec2/infra/stage/terraform.tfstate" >> "$GITHUB_OUTPUT"
               ;;
             06-static-site-ecs)
-              echo "path=labs/06-static-site-ecs" >> "$GITHUB_OUTPUT"
-              echo "environment=lab-06-stage" >> "$GITHUB_OUTPUT"
               echo "apply_role_arn=arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-apply" >> "$GITHUB_OUTPUT"
+              echo "ecr_repository_name=devops-static-site-ecs-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
+              echo "environment=lab-06-stage" >> "$GITHUB_OUTPUT"
+              echo "path=labs/06-static-site-ecs" >> "$GITHUB_OUTPUT"
+              echo "runtime_kind=ecs-express" >> "$GITHUB_OUTPUT"
+              echo "state_bucket=noidilin-tf-state" >> "$GITHUB_OUTPUT"
+              echo "state_key=labs/06-static-site-ecs/infra/stage/terraform.tfstate" >> "$GITHUB_OUTPUT"
               ;;
           esac
 
   approved-destroy:
+    name: Approved destroy for ${{ inputs.lab }}
     needs: select-lab
     runs-on: ubuntu-latest
     environment: ${{ needs.select-lab.outputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-1
+      ECR_REPOSITORY_NAME: ${{ needs.select-lab.outputs.ecr_repository_name }}
+      LAB_PATH: ${{ needs.select-lab.outputs.path }}
+      RUNTIME_KIND: ${{ needs.select-lab.outputs.runtime_kind }}
+      STATE_BUCKET: ${{ needs.select-lab.outputs.state_bucket }}
+      STATE_KEY: ${{ needs.select-lab.outputs.state_key }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+
       - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
-          working_directory: ${{ needs.select-lab.outputs.path }}
-      - uses: aws-actions/configure-aws-credentials@v6
+          working_directory: ${{ env.LAB_PATH }}
+
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           role-to-assume: ${{ needs.select-lab.outputs.apply_role_arn }}
-          aws-region: ap-northeast-1
-      - name: Terraform destroy runtime only
-        working-directory: ${{ needs.select-lab.outputs.path }}/infra/stage
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write Terraform backend config
+        working-directory: ${{ env.LAB_PATH }}/infra/stage
+        shell: bash
         run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket       = "${STATE_BUCKET}"
+          key          = "${STATE_KEY}"
+          region       = "${AWS_REGION}"
+          use_lockfile = true
+          encrypt      = true
+          EOF_BACKEND
+
+      - name: Capture runtime outputs before destroy
+        id: before
+        working-directory: ${{ env.LAB_PATH }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
           terraform init -backend-config=backend.hcl
+
+          capture_output() {
+            local name="$1"
+            local value
+            value=$(terraform output -raw "$name" 2>/dev/null || true)
+            printf '%s=%s\n' "$name" "$value" >> "$GITHUB_OUTPUT"
+          }
+
+          # Common Bootstrap/Runtime boundary outputs.
+          capture_output ecr_repository_name
+          capture_output ecr_repository_url
+          capture_output service_url
+
+          # Lab-specific runtime identifiers used for post-destroy absence checks.
+          capture_output instance_id
+          capture_output security_group_id
+          capture_output ecs_cluster_name
+          capture_output express_service_arn
+          capture_output express_service_name
+          capture_output cloudwatch_log_group_name
+
+      - name: Terraform destroy selected runtime only
+        working-directory: ${{ env.LAB_PATH }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
           terraform destroy -input=false -auto-approve
+
+      - name: Confirm runtime gone and AWS bootstrap remains
+        shell: bash
+        env:
+          CAPTURED_ECR_REPOSITORY_NAME: ${{ steps.before.outputs.ecr_repository_name }}
+          CLOUDWATCH_LOG_GROUP_NAME: ${{ steps.before.outputs.cloudwatch_log_group_name }}
+          ECS_CLUSTER_NAME: ${{ steps.before.outputs.ecs_cluster_name }}
+          EXPRESS_SERVICE_ARN: ${{ steps.before.outputs.express_service_arn }}
+          EXPRESS_SERVICE_NAME: ${{ steps.before.outputs.express_service_name }}
+          INSTANCE_ID: ${{ steps.before.outputs.instance_id }}
+          SECURITY_GROUP_ID: ${{ steps.before.outputs.security_group_id }}
+          SERVICE_URL: ${{ steps.before.outputs.service_url }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${SERVICE_URL}" ] && curl -fsS --max-time 15 "${SERVICE_URL}" >/dev/null 2>&1; then
+            echo "Runtime endpoint still responds after destroy: ${SERVICE_URL}" >&2
+            exit 1
+          fi
+
+          case "${RUNTIME_KIND}" in
+            ec2)
+              if [ -n "${SECURITY_GROUP_ID}" ] && aws ec2 describe-security-groups --group-ids "${SECURITY_GROUP_ID}" >/dev/null 2>&1; then
+                echo "EC2 runtime security group still exists after destroy: ${SECURITY_GROUP_ID}" >&2
+                exit 1
+              fi
+
+              if [ -n "${INSTANCE_ID}" ]; then
+                ACTIVE_INSTANCE_ID=$(aws ec2 describe-instances \
+                  --instance-ids "${INSTANCE_ID}" \
+                  --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId" \
+                  --output text 2>/dev/null || true)
+                if [ -n "${ACTIVE_INSTANCE_ID}" ]; then
+                  echo "EC2 runtime instance is still active after destroy: ${INSTANCE_ID}" >&2
+                  exit 1
+                fi
+              fi
+              ;;
+            ecs-express)
+              if [ -n "${EXPRESS_SERVICE_ARN}" ] && aws ecs describe-express-gateway-service --service-arn "${EXPRESS_SERVICE_ARN}" >/dev/null 2>&1; then
+                echo "ECS Express runtime service still exists after destroy: ${EXPRESS_SERVICE_ARN}" >&2
+                exit 1
+              fi
+
+              if [ -n "${CLOUDWATCH_LOG_GROUP_NAME}" ]; then
+                EXISTING_LOG_GROUP=$(aws logs describe-log-groups \
+                  --log-group-name-prefix "${CLOUDWATCH_LOG_GROUP_NAME}" \
+                  --query "logGroups[?logGroupName=='${CLOUDWATCH_LOG_GROUP_NAME}'].logGroupName" \
+                  --output text)
+                if [ -n "${EXISTING_LOG_GROUP}" ]; then
+                  echo "ECS runtime log group still exists after destroy: ${CLOUDWATCH_LOG_GROUP_NAME}" >&2
+                  exit 1
+                fi
+              fi
+
+              if [ -n "${ECS_CLUSTER_NAME}" ]; then
+                ACTIVE_CLUSTER=$(aws ecs describe-clusters \
+                  --clusters "${ECS_CLUSTER_NAME}" \
+                  --query "clusters[?status!='INACTIVE'].clusterName" \
+                  --output text)
+                if [ -n "${ACTIVE_CLUSTER}" ]; then
+                  echo "ECS runtime cluster is still active after destroy: ${ECS_CLUSTER_NAME}" >&2
+                  exit 1
+                fi
+              fi
+              ;;
+          esac
+
+          ECR_REPOSITORY_TO_CHECK="${CAPTURED_ECR_REPOSITORY_NAME:-${ECR_REPOSITORY_NAME}}"
+          aws ecr describe-repositories --repository-names "${ECR_REPOSITORY_TO_CHECK}" >/dev/null
+
+          echo "Selected runtime is gone; durable ECR repository remains describable: ${ECR_REPOSITORY_TO_CHECK}."
