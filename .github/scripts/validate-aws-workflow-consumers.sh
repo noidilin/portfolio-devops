@@ -3,9 +3,9 @@ set -euo pipefail
 
 workflows=(
   ".github/workflows/aws-bootstrap-ci.yml"
-  ".github/workflows/ec2-ecs-ci.yml"
-  ".github/workflows/ec2-ecs-deploy.yml"
-  ".github/workflows/ec2-ecs-destroy.yml"
+  ".github/workflows/aws-runtime-ci.yml"
+  ".github/workflows/aws-runtime-deploy.yml"
+  ".github/workflows/aws-runtime-destroy.yml"
 )
 
 require_text() {
@@ -35,25 +35,25 @@ require_text 'labs/06-static-site-ecs/infra/bootstrap' '.github/workflows/aws-bo
 # Lab CI/deploy/destroy workflows must keep consuming the canonical role names
 # and runtime state keys produced/documented by the AWS bootstrap roots.
 for file in \
-  '.github/workflows/ec2-ecs-ci.yml' \
-  '.github/workflows/ec2-ecs-deploy.yml'; do
+  '.github/workflows/aws-runtime-ci.yml' \
+  '.github/workflows/aws-runtime-deploy.yml'; do
   require_text 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan' "$file"
   require_text 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan' "$file"
 done
 
 for file in \
-  '.github/workflows/ec2-ecs-deploy.yml' \
-  '.github/workflows/ec2-ecs-destroy.yml'; do
+  '.github/workflows/aws-runtime-deploy.yml' \
+  '.github/workflows/aws-runtime-destroy.yml'; do
   require_text 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-apply' "$file"
   require_text 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-apply' "$file"
   require_text 'labs/05-static-site-ec2/infra/stage/terraform.tfstate' "$file"
   require_text 'labs/06-static-site-ecs/infra/stage/terraform.tfstate' "$file"
 done
 
-require_text 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-image-push' '.github/workflows/ec2-ecs-deploy.yml'
-require_text 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-image-push' '.github/workflows/ec2-ecs-deploy.yml'
-require_text 'devops-static-site-ec2-stage-cidr-calculator' '.github/workflows/ec2-ecs-deploy.yml'
-require_text 'devops-static-site-ecs-stage-cidr-calculator' '.github/workflows/ec2-ecs-deploy.yml'
+require_text 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-image-push' '.github/workflows/aws-runtime-deploy.yml'
+require_text 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-image-push' '.github/workflows/aws-runtime-deploy.yml'
+require_text 'devops-static-site-ec2-stage-cidr-calculator' '.github/workflows/aws-runtime-deploy.yml'
+require_text 'devops-static-site-ecs-stage-cidr-calculator' '.github/workflows/aws-runtime-deploy.yml'
 
 # Guard against the old shared-bootstrap path and any stale lab naming variants.
 reject_pattern 'infra/account-bootstrap|lab-05-ec2|lab-06-ecs|github-(deploy|runtime)' "${workflows[@]}"
