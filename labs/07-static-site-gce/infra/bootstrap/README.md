@@ -23,7 +23,7 @@ This lab requires:
 
 - `infra/gcp-bootstrap/shared-project` already applied (or planned and ready to apply).
 - `aws` account-level GitHub OIDC provider and permissions boundaries managed outside this root.
-- Shared GCP bootstrap outputs: `gcp_project_id`, `gcp_project_number`, `state_bucket_name`, `github_wif_pool_name`, `github_wif_provider_name`.
+- Shared GCP bootstrap outputs: `project_id`, `project_number`, `state_bucket_name`, `github_wif_pool_name`, `github_wif_provider_name`. Pass `state_bucket_name` as this root's `gcp_state_bucket_name`.
 - A GitHub Environment named `lab-07-stage` for apply protections.
 
 ## Configure backend and variables
@@ -50,13 +50,25 @@ Key validated variables include:
 
 ## Validate and apply
 
+Static checks (backend disabled, as CI runs them):
+
 ```sh
+terraform -chdir=labs/07-static-site-gce/infra/bootstrap fmt -check -recursive
+terraform -chdir=labs/07-static-site-gce/infra/bootstrap init -backend=false
+terraform -chdir=labs/07-static-site-gce/infra/bootstrap validate
+terraform -chdir=labs/07-static-site-gce/infra/bootstrap test
+```
+
+Local apply with the operator's real backend and shared-project outputs:
+
+```sh
+cd labs/07-static-site-gce/infra/bootstrap
 terraform init -backend-config=backend.hcl
-terraform fmt -check -recursive
+terraform fmt -recursive
 terraform validate
-terraform test
 terraform plan
 terraform apply
+terraform output
 ```
 
 ## Durable resources

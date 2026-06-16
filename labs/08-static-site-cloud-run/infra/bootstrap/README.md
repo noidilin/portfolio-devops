@@ -20,32 +20,35 @@ Bootstrap owns the durable dual-cloud contract for Lab 08: AWS image roles and E
 cd labs/08-static-site-cloud-run/infra/bootstrap
 cp backend.hcl.example backend.hcl
 $EDITOR backend.hcl # set bucket to shared state_bucket_name
-terraform init -backend-config=backend.hcl
-```
-
-The backend prefix is `gcp/bootstrap/labs/08-static-site-cloud-run`, so this root uses the shared GCS bucket created by the shared GCP bootstrap.
-
-```sh
 cp bootstrap.auto.tfvars.example bootstrap.auto.tfvars
 $EDITOR bootstrap.auto.tfvars
 ```
 
-The committed example uses placeholders only and expects full shared WIF resource names, not pool/provider IDs.
+The backend prefix is `gcp/bootstrap/labs/08-static-site-cloud-run`, so this root uses the shared GCS bucket created by the shared GCP bootstrap.
+
+The committed variable example uses placeholders only and expects the shared bootstrap outputs `project_id`, `project_number`, `state_bucket_name` (as `gcp_state_bucket_name`), `github_wif_pool_name`, and `github_wif_provider_name`. It consumes full shared WIF resource names, not pool/provider IDs.
 
 ## Validate and apply
 
+Static checks (backend disabled, as CI runs them):
+
 ```sh
-terraform fmt -recursive
-terraform validate
-terraform test
-terraform apply
+terraform -chdir=labs/08-static-site-cloud-run/infra/bootstrap fmt -check -recursive
+terraform -chdir=labs/08-static-site-cloud-run/infra/bootstrap init -backend=false
+terraform -chdir=labs/08-static-site-cloud-run/infra/bootstrap validate
+terraform -chdir=labs/08-static-site-cloud-run/infra/bootstrap test
 ```
 
-For local syntax-only validation before configuring remote state:
+Local apply with the operator's real backend and shared-project outputs:
 
 ```sh
-terraform init -backend=false
+cd labs/08-static-site-cloud-run/infra/bootstrap
+terraform init -backend-config=backend.hcl
+terraform fmt -recursive
 terraform validate
+terraform plan
+terraform apply
+terraform output
 ```
 
 ## Durable resources
