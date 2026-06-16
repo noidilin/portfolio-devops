@@ -63,6 +63,8 @@ jobs:
             port: 8090,
             bootstrap_path: 'labs/05-static-site-ec2/infra/bootstrap',
             stage_path: 'labs/05-static-site-ec2/infra/stage',
+            state_bucket: 'noidilin-tf-state',
+            state_key: 'labs/05-static-site-ec2/infra/stage/terraform.tfstate',
             plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ec2-stage-github-plan'
           });
           if (process.env.INCLUDE_06 === 'true') labs.push({
@@ -74,6 +76,8 @@ jobs:
             port: 8091,
             bootstrap_path: 'labs/06-static-site-ecs/infra/bootstrap',
             stage_path: 'labs/06-static-site-ecs/infra/stage',
+            state_bucket: 'noidilin-tf-state',
+            state_key: 'labs/06-static-site-ecs/infra/stage/terraform.tfstate',
             plan_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-ecs-stage-github-plan'
           });
           process.stdout.write(JSON.stringify(labs));
@@ -152,6 +156,18 @@ jobs:
         with:
           role-to-assume: ${{ matrix.lab.plan_role_arn }}
           aws-region: ap-northeast-1
+      - name: Write Terraform backend config
+        working-directory: ${{ matrix.lab.stage_path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket       = "${{ matrix.lab.state_bucket }}"
+          key          = "${{ matrix.lab.state_key }}"
+          region       = "ap-northeast-1"
+          use_lockfile = true
+          encrypt      = true
+          EOF_BACKEND
       - name: Terraform fmt, validate, plan
         id: tfplan
         working-directory: ${{ matrix.lab.stage_path }}

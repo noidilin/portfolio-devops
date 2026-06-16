@@ -1,3 +1,12 @@
+provider "aws" {
+  region                      = "ap-northeast-1"
+  access_key                  = "test"
+  secret_key                  = "test"
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
+}
+
 override_data {
   target = data.aws_caller_identity.current
   values = {
@@ -90,13 +99,16 @@ run "lab05_bootstrap_contract" {
   }
 
   assert {
-    condition     = strcontains(aws_iam_role.github_plan.assume_role_policy, "token.actions.githubusercontent.com:aud") && strcontains(aws_iam_role.github_plan.assume_role_policy, "sts.amazonaws.com") && strcontains(aws_iam_role.github_plan.assume_role_policy, "repo:OWNER/REPO:pull_request") && strcontains(aws_iam_role.github_plan.assume_role_policy, "repo:OWNER/REPO:ref:refs/heads/main")
-    error_message = "Plan role trust must stay scoped to the GitHub OIDC audience and PR/main subjects."
+    condition = try(tolist(jsondecode(aws_iam_role.github_plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"]), [jsondecode(aws_iam_role.github_plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"]]) == ["sts.amazonaws.com"] && sort(try(tolist(jsondecode(aws_iam_role.github_plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]), [jsondecode(aws_iam_role.github_plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]])) == sort([
+      "repo:OWNER/REPO:pull_request",
+      "repo:OWNER/REPO:ref:refs/heads/main",
+    ])
+    error_message = "Plan role trust must stay exactly scoped to the GitHub OIDC audience and PR/main subjects."
   }
 
   assert {
-    condition     = strcontains(aws_iam_role.github_image_push.assume_role_policy, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(aws_iam_role.github_apply.assume_role_policy, "repo:OWNER/REPO:environment:lab-05-stage") && aws_iam_role.github_apply.assume_role_policy == data.aws_iam_policy_document.github_apply_assume_role.json
-    error_message = "Image push trust should stay on main and apply trust should stay scoped to the protected Lab 05 environment."
+    condition     = try(tolist(jsondecode(aws_iam_role.github_image_push.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"]), [jsondecode(aws_iam_role.github_image_push.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"]]) == ["sts.amazonaws.com"] && try(tolist(jsondecode(aws_iam_role.github_image_push.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]), [jsondecode(aws_iam_role.github_image_push.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]]) == ["repo:OWNER/REPO:ref:refs/heads/main"] && try(tolist(jsondecode(aws_iam_role.github_apply.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"]), [jsondecode(aws_iam_role.github_apply.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:aud"]]) == ["sts.amazonaws.com"] && try(tolist(jsondecode(aws_iam_role.github_apply.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]), [jsondecode(aws_iam_role.github_apply.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]]) == ["repo:OWNER/REPO:environment:lab-05-stage"]
+    error_message = "Image push trust should stay exactly on main and apply trust should stay exactly scoped to the protected Lab 05 environment."
   }
 
   assert {
