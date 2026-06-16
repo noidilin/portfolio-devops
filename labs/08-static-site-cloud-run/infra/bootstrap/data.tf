@@ -1,9 +1,5 @@
 data "aws_caller_identity" "current" {}
 
-data "google_project" "current" {
-  project_id = var.gcp_project_id
-}
-
 data "aws_iam_policy_document" "github_plan_assume_role" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]

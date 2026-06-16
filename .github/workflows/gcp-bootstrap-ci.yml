@@ -65,7 +65,7 @@ jobs:
           - id: 08-static-site-cloud-run
             path: labs/08-static-site-cloud-run/infra/bootstrap
             state_prefix: gcp/bootstrap/labs/08-static-site-cloud-run
-            gcp_plan_service_account: lab-08-cloudrun-plan@portfolio-devops-labs.iam.gserviceaccount.com
+            gcp_plan_service_account: devops-cloudrun-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com
             aws_plan_role_arn: arn:aws:iam::549475122024:role/devops-static-site-cloud-run-stage-github-plan
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -108,20 +108,20 @@ jobs:
           gcp_project_id              = "${GCP_PROJECT_ID}"
           gcp_project_number          = "${GCP_PROJECT_NUMBER}"
           gcp_region                  = "${GCP_REGION}"
-          gcp_state_bucket_name    = "${GCP_STATE_BUCKET}"
+          gcp_state_bucket_name       = "${GCP_STATE_BUCKET}"
           github_repository           = "${GITHUB_REPOSITORY_SLUG}"
           github_wif_pool_name        = "projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WIF_POOL_ID}"
           github_wif_provider_name    = "${GCP_WIF_PROVIDER}"
           EOF_TFVARS
           else
             cat > ci.auto.tfvars <<EOF_TFVARS
-          aws_region             = "${AWS_REGION}"
-          gcp_project_id         = "${GCP_PROJECT_ID}"
-          gcp_region             = "${GCP_REGION}"
-          gcp_state_bucket_name  = "${GCP_STATE_BUCKET}"
-          github_repository      = "${GITHUB_REPOSITORY_SLUG}"
-          github_wif_pool_id     = "${GCP_WIF_POOL_ID}"
-          github_wif_provider_id = "${GCP_WIF_PROVIDER_ID}"
+          aws_region                  = "${AWS_REGION}"
+          gcp_project_id              = "${GCP_PROJECT_ID}"
+          gcp_region                  = "${GCP_REGION}"
+          gcp_state_bucket_name       = "${GCP_STATE_BUCKET}"
+          github_repository           = "${GITHUB_REPOSITORY_SLUG}"
+          github_wif_pool_name        = "projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WIF_POOL_ID}"
+          github_wif_provider_name    = "${GCP_WIF_PROVIDER}"
           EOF_TFVARS
           fi
 

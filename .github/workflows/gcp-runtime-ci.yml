@@ -94,7 +94,7 @@ jobs:
             gcp_zone: '',
             artifact_registry_repository_id: 'devops-static-site-cloud-run-stage-cidr-calculator',
             state_prefix: 'gcp/runtime/labs/08-static-site-cloud-run/stage',
-            gcp_plan_service_account: 'lab-08-cloudrun-plan@portfolio-devops-labs.iam.gserviceaccount.com'
+            gcp_plan_service_account: 'devops-cloudrun-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com'
           });
           process.stdout.write(JSON.stringify(labs));
           NODE

@@ -37,8 +37,8 @@ env:
   GITHUB_ENVIRONMENT: lab-08-stage
   AWS_IMAGE_PUSH_ROLE_ARN: arn:aws:iam::549475122024:role/devops-static-site-cloud-run-stage-github-image-push
   AWS_ECR_PULL_ROLE_ARN: arn:aws:iam::549475122024:role/devops-static-site-cloud-run-stage-github-image-pull
-  GCP_PLAN_SERVICE_ACCOUNT: lab-08-cloudrun-plan@portfolio-devops-labs.iam.gserviceaccount.com
-  GCP_APPLY_SERVICE_ACCOUNT: lab-08-cloudrun-apply@portfolio-devops-labs.iam.gserviceaccount.com
+  GCP_PLAN_SERVICE_ACCOUNT: devops-cloudrun-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com
+  GCP_APPLY_SERVICE_ACCOUNT: devops-cloudrun-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com
 
 jobs:
   preflight-build-push-plan:

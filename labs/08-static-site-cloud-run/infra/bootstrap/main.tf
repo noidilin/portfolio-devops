@@ -53,21 +53,32 @@ resource "google_artifact_registry_repository" "service" {
   labels        = local.gcp_labels
 
   cleanup_policies {
-    id     = "keep-recent-versions"
-    action = "KEEP"
+    id     = "delete-old-sha-tags"
+    action = "DELETE"
 
-    most_recent_versions {
-      keep_count = var.artifact_cleanup_keep_count
+    condition {
+      tag_state    = "TAGGED"
+      tag_prefixes = ["sha-"]
+      older_than   = var.artifact_registry_delete_older_than
     }
   }
 
   cleanup_policies {
-    id     = "delete-untagged-after-one-day"
+    id     = "keep-recent-versions"
+    action = "KEEP"
+
+    most_recent_versions {
+      keep_count = var.artifact_registry_keep_count
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-untagged-images"
     action = "DELETE"
 
     condition {
       tag_state  = "UNTAGGED"
-      older_than = "86400s"
+      older_than = var.artifact_registry_untagged_delete_older_than
     }
   }
 }
@@ -111,8 +122,6 @@ resource "google_project_iam_custom_role" "plan" {
     "serviceusage.services.get",
     "serviceusage.services.list",
     "storage.buckets.get",
-    "storage.objects.get",
-    "storage.objects.list",
   ]
 }
 
@@ -158,39 +167,6 @@ resource "google_project_iam_custom_role" "apply" {
     "serviceusage.services.get",
     "serviceusage.services.list",
     "storage.buckets.get",
-    "storage.objects.create",
-    "storage.objects.delete",
-    "storage.objects.get",
-    "storage.objects.list",
-    "storage.objects.update",
-  ]
-}
-
-resource "google_project_iam_custom_role" "bootstrap_admin" {
-  project     = var.gcp_project_id
-  role_id     = local.bootstrap_admin_custom_role_id
-  title       = "Lab 08 Cloud Run bootstrap admin"
-  description = "One-time project/IAM mutation permissions for controlled Lab 08 bootstrap, isolated from durable GitHub apply."
-  stage       = "GA"
-
-  permissions = [
-    "iam.roles.create",
-    "iam.roles.delete",
-    "iam.roles.get",
-    "iam.roles.list",
-    "iam.roles.undelete",
-    "iam.roles.update",
-    "iam.serviceAccounts.actAs",
-    "iam.serviceAccounts.create",
-    "iam.serviceAccounts.delete",
-    "iam.serviceAccounts.get",
-    "iam.serviceAccounts.getIamPolicy",
-    "iam.serviceAccounts.list",
-    "iam.serviceAccounts.setIamPolicy",
-    "iam.serviceAccounts.update",
-    "resourcemanager.projects.get",
-    "resourcemanager.projects.getIamPolicy",
-    "resourcemanager.projects.setIamPolicy",
   ]
 }
 
@@ -200,14 +176,32 @@ resource "google_project_iam_member" "plan" {
   member  = google_service_account.plan.member
 }
 
-resource "google_storage_bucket_iam_member" "plan_state_lock" {
+resource "google_storage_bucket_iam_member" "plan_state_read" {
+  bucket = var.gcp_state_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = google_service_account.plan.member
+}
+
+resource "google_storage_bucket_iam_member" "plan_state_lock_bootstrap" {
   bucket = var.gcp_state_bucket_name
   role   = "roles/storage.objectAdmin"
   member = google_service_account.plan.member
 
   condition {
-    title       = "TerraformStateLockFiles"
-    description = "Allow PR plans to create and delete Terraform GCS lock files for this stage only."
+    title       = "BootstrapStateLockFiles"
+    description = "Allow PR plans to create and delete Terraform GCS lock files for this bootstrap prefix only."
+    expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_bootstrap_prefix}\") && resource.name.endsWith(\".tflock\")"
+  }
+}
+
+resource "google_storage_bucket_iam_member" "plan_state_lock_runtime" {
+  bucket = var.gcp_state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = google_service_account.plan.member
+
+  condition {
+    title       = "RuntimeStateLockFiles"
+    description = "Allow PR plans to create and delete Terraform GCS lock files for this runtime state prefix."
     expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_state_prefix}\") && resource.name.endsWith(\".tflock\")"
   }
 }
@@ -218,16 +212,34 @@ resource "google_project_iam_member" "apply" {
   member  = google_service_account.apply.member
 }
 
-resource "google_service_account_iam_member" "github_plan_wif" {
+resource "google_storage_bucket_iam_member" "apply_state_runtime" {
+  bucket = var.gcp_state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = google_service_account.apply.member
+
+  condition {
+    title       = "RuntimeStateAccess"
+    description = "Allow runtime apply to read/write and lock Terraform state objects for the runtime state prefix only."
+    expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_state_prefix}\")"
+  }
+}
+
+resource "google_service_account_iam_member" "github_plan_wif_pull_request" {
   service_account_id = google_service_account.plan.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = local.gcp_plan_principal_set
+  member             = local.plan_wif_members[0]
+}
+
+resource "google_service_account_iam_member" "github_plan_wif_main" {
+  service_account_id = google_service_account.plan.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = local.plan_wif_members[1]
 }
 
 resource "google_service_account_iam_member" "github_apply_wif" {
   service_account_id = google_service_account.apply.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = local.gcp_apply_principal
+  member             = local.apply_wif_members[0]
 }
 
 resource "aws_iam_role" "github_plan" {
