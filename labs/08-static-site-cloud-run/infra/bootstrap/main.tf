@@ -180,6 +180,12 @@ resource "google_storage_bucket_iam_member" "plan_state_read" {
   bucket = var.gcp_state_bucket_name
   role   = "roles/storage.objectViewer"
   member = google_service_account.plan.member
+
+  condition {
+    title       = "PlanStateReadPrefixes"
+    description = "Allow PR plans to read Terraform state only for this bootstrap prefix and runtime state prefix."
+    expression  = "resource.type == \"storage.googleapis.com/Object\" && (resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_bootstrap_prefix}\") || resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_state_prefix}\"))"
+  }
 }
 
 resource "google_storage_bucket_iam_member" "plan_state_lock_bootstrap" {
