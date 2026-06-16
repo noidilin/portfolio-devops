@@ -7,7 +7,8 @@ on:
       - "apps/cidr-calculator/**"
       - "labs/05-static-site-ec2/**"
       - "labs/06-static-site-ecs/**"
-      - "infra/account-bootstrap/**"
+      - "infra/bootstrap/aws/**"
+      - ".github/workflows/aws-bootstrap-ci.yml"
       - ".github/workflows/ec2-ecs-ci.yml"
       - ".github/workflows/ec2-ecs-deploy.yml"
       - ".github/workflows/ec2-ecs-destroy.yml"
@@ -40,7 +41,7 @@ jobs:
 
           include_05=false
           include_06=false
-          if grep -Eq '^(infra/account-bootstrap/|\.github/workflows/ec2-ecs-(ci|deploy|destroy)\.yml)' <<<"$CHANGED"; then
+          if grep -Eq '^(infra/bootstrap/aws/|\.github/workflows/(aws-bootstrap-ci|ec2-ecs-(ci|deploy|destroy))\.yml)' <<<"$CHANGED"; then
             include_05=true
             include_06=true
           fi

@@ -1,0 +1,77 @@
+name: aws-bootstrap-ci
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/bootstrap/aws/**"
+      - "labs/05-static-site-ec2/infra/bootstrap/**"
+      - "labs/06-static-site-ecs/infra/bootstrap/**"
+      - ".github/workflows/aws-bootstrap-ci.yml"
+      - ".github/workflows/ec2-ecs-ci.yml"
+      - ".github/workflows/ec2-ecs-deploy.yml"
+      - ".github/workflows/ec2-ecs-destroy.yml"
+      - "scripts/validate-aws-workflow-consumers.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-bootstrap-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflow-consumer-contract:
+    name: Workflow consumer contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Validate canonical workflow consumers
+        run: scripts/validate-aws-workflow-consumers.sh
+
+  shared-bootstrap-static-checks:
+    name: Shared bootstrap fmt/validate/test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+      - name: Terraform fmt, validate, and tests
+        working-directory: infra/bootstrap/aws
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+          terraform test
+
+  per-lab-bootstrap-static-checks:
+    name: ${{ matrix.lab.id }} bootstrap fmt/validate/test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lab:
+          - id: 05-static-site-ec2
+            path: labs/05-static-site-ec2/infra/bootstrap
+          - id: 06-static-site-ecs
+            path: labs/06-static-site-ecs/infra/bootstrap
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+      - name: Terraform fmt, validate, and tests
+        working-directory: ${{ matrix.lab.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform init -backend=false
+          terraform validate
+          terraform test
