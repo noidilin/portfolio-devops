@@ -4,7 +4,7 @@ set -euo pipefail
 workflows=(
   ".github/workflows/gcp-bootstrap-ci.yml"
   ".github/workflows/gcp-runtime-ci.yml"
-  ".github/workflows/gcp-cloud-run-deploy.yml"
+  ".github/workflows/gcp-runtime-deploy.yml"
   ".github/workflows/gcp-runtime-destroy.yml"
 )
 
@@ -38,12 +38,12 @@ require_text 'GCP_WIF_PROVIDER: projects/993692022673/locations/global/workloadI
 for file in \
   '.github/workflows/gcp-bootstrap-ci.yml' \
   '.github/workflows/gcp-runtime-ci.yml' \
-  '.github/workflows/gcp-cloud-run-deploy.yml'; do
+  '.github/workflows/gcp-runtime-deploy.yml'; do
   require_text 'devops-cloudrun-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com' "$file"
 done
 
 for file in \
-  '.github/workflows/gcp-cloud-run-deploy.yml' \
+  '.github/workflows/gcp-runtime-deploy.yml' \
   '.github/workflows/gcp-runtime-destroy.yml'; do
   require_text 'devops-cloudrun-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com' "$file"
 done

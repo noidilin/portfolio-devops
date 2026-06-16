@@ -154,7 +154,7 @@ terraform output list_revisions_command
 
 Create GitHub Environment `lab-08-stage` before using deploy/destroy, and configure its required reviewers in the GitHub repository settings.
 
-Use `.github/workflows/gcp-cloud-run-deploy.yml` as the normal provisioning path. The workflow runs app checks, Docker smoke tests, Terraform validation, `terraform test`, and a pre-approval plan. After `lab-08-stage` approval, it mirrors the immutable image tag into Artifact Registry and applies only Runtime Stage resources in `labs/08-static-site-cloud-run/infra/stage`.
+Use `.github/workflows/gcp-runtime-deploy.yml` with `lab=08-static-site-cloud-run` as the normal provisioning path. The workflow runs app checks, Docker smoke tests, Terraform validation, `terraform test`, and a pre-approval plan. After `lab-08-stage` approval, it mirrors the immutable image tag into Artifact Registry and applies only Runtime Stage resources in `labs/08-static-site-cloud-run/infra/stage`.
 
 Use `.github/workflows/gcp-runtime-destroy.yml` for gated runtime teardown:
 

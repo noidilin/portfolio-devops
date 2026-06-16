@@ -9,7 +9,7 @@ on:
       - "labs/08-static-site-cloud-run/infra/bootstrap/**"
       - ".github/workflows/gcp-bootstrap-ci.yml"
       - ".github/workflows/gcp-runtime-ci.yml"
-      - ".github/workflows/gcp-cloud-run-deploy.yml"
+      - ".github/workflows/gcp-runtime-deploy.yml"
       - ".github/workflows/gcp-runtime-destroy.yml"
       - "scripts/validate-gcp-workflow-consumers.sh"
   workflow_dispatch:

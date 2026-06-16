@@ -1,0 +1,375 @@
+name: gcp-runtime-deploy
+
+# Approved deploy path for GCP runtime labs. ECR remains canonical; the
+# preflight job builds and pushes/reuses the immutable ECR tag, then plans the
+# selected GCP runtime root. After the matching GitHub Environment approval, the
+# apply job pulls that immutable ECR tag, mirrors it to Artifact Registry,
+# applies Terraform with the explicit tag, and smoke-tests the deployed service.
+on:
+  workflow_dispatch:
+    inputs:
+      lab:
+        description: "GCP runtime lab to deploy"
+        required: true
+        type: choice
+        options:
+          - "all"
+          - "07-static-site-gce"
+          - "08-static-site-cloud-run"
+  push:
+    branches: [main]
+    paths:
+      - "apps/cidr-calculator/**"
+      - "labs/07-static-site-gce/**"
+      - "labs/08-static-site-cloud-run/**"
+      - ".github/workflows/gcp-runtime-deploy.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gcp-runtime-deploy-${{ github.event_name == 'workflow_dispatch' && inputs.lab || github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  GCP_PROJECT_ID: portfolio-devops-labs
+  GCP_REGION: asia-northeast1
+  GCP_STATE_BUCKET: portfolio-devops-labs-tf-state
+  GCP_WIF_PROVIDER: projects/993692022673/locations/global/workloadIdentityPools/github-actions/providers/github
+  APP_PATH: apps/cidr-calculator
+  IMAGE_TAG: sha-${{ github.sha }}
+  SERVICE_NAME: cidr-calculator
+
+jobs:
+  detect-labs:
+    name: Detect GCP runtime labs to deploy
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_labs: ${{ steps.detect.outputs.has_labs }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          include_07=false
+          include_08=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            case "${{ inputs.lab }}" in
+              all)
+                include_07=true
+                include_08=true
+                ;;
+              07-static-site-gce) include_07=true ;;
+              08-static-site-cloud-run) include_08=true ;;
+            esac
+          else
+            CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+            echo "$CHANGED"
+
+            if grep -Eq '^(apps/cidr-calculator/|\.github/workflows/gcp-runtime-deploy\.yml)' <<<"$CHANGED"; then
+              include_07=true
+              include_08=true
+            fi
+            if grep -q '^labs/07-static-site-gce/' <<<"$CHANGED"; then include_07=true; fi
+            if grep -q '^labs/08-static-site-cloud-run/' <<<"$CHANGED"; then include_08=true; fi
+          fi
+
+          MATRIX=$(INCLUDE_07="$include_07" INCLUDE_08="$include_08" node <<'NODE'
+          const labs = [];
+          if (process.env.INCLUDE_07 === 'true') labs.push({
+            id: '07-static-site-gce',
+            path: 'labs/07-static-site-gce',
+            port: 8092,
+            environment: 'lab-07-stage',
+            runtime_kind: 'gce',
+            gcp_zone: 'asia-northeast1-a',
+            ecr_repository_name: 'devops-static-site-gce-stage-cidr-calculator',
+            artifact_registry_repository_id: 'devops-static-site-gce-stage-cidr-calculator',
+            state_prefix: 'gcp/runtime/labs/07-static-site-gce/stage',
+            aws_image_push_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-gce-stage-github-image-push',
+            aws_ecr_pull_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-gce-stage-github-image-pull',
+            gcp_plan_service_account: 'devops-gce-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com',
+            gcp_apply_service_account: 'devops-gce-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com'
+          });
+          if (process.env.INCLUDE_08 === 'true') labs.push({
+            id: '08-static-site-cloud-run',
+            path: 'labs/08-static-site-cloud-run',
+            port: 8093,
+            environment: 'lab-08-stage',
+            runtime_kind: 'cloud-run',
+            gcp_zone: '',
+            ecr_repository_name: 'devops-static-site-cloud-run-stage-cidr-calculator',
+            artifact_registry_repository_id: 'devops-static-site-cloud-run-stage-cidr-calculator',
+            state_prefix: 'gcp/runtime/labs/08-static-site-cloud-run/stage',
+            aws_image_push_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-cloud-run-stage-github-image-push',
+            aws_ecr_pull_role_arn: 'arn:aws:iam::549475122024:role/devops-static-site-cloud-run-stage-github-image-pull',
+            gcp_plan_service_account: 'devops-cloudrun-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com',
+            gcp_apply_service_account: 'devops-cloudrun-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com'
+          });
+          process.stdout.write(JSON.stringify(labs));
+          NODE
+          )
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then echo "has_labs=false" >> "$GITHUB_OUTPUT"; else echo "has_labs=true" >> "$GITHUB_OUTPUT"; fi
+
+  preflight-build-push-plan:
+    name: ${{ matrix.lab.id }} build, smoke, push/reuse ECR, and plan
+    needs: detect-labs
+    if: needs.detect-labs.outputs.has_labs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Install app toolchain
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        with:
+          working_directory: ${{ env.APP_PATH }}
+
+      - name: App checks
+        working-directory: ${{ env.APP_PATH }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm test
+          pnpm build
+
+      - name: Build and local smoke test
+        working-directory: ${{ env.APP_PATH }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="cidr-calculator:deploy-${GITHUB_SHA}-${{ matrix.lab.id }}"
+          NAME="cidr-deploy-${GITHUB_RUN_ID}-${{ matrix.lab.id }}"
+          docker build -t "$IMAGE" .
+          docker run --rm -d --name "$NAME" -p "${{ matrix.lab.port }}:80" "$IMAGE"
+          trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+          for _ in {1..30}; do
+            if curl -fsS "http://localhost:${{ matrix.lab.port }}" | grep -q "CIDR Calculator"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs "$NAME"
+          exit 1
+
+      - name: Authenticate to AWS for ECR push/reuse only
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        with:
+          role-to-assume: ${{ matrix.lab.aws_image_push_role_arn }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Push or reuse immutable ECR image
+        working-directory: ${{ env.APP_PATH }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ECR_REPOSITORY_URL=$(aws ecr describe-repositories \
+            --repository-names "${{ matrix.lab.ecr_repository_name }}" \
+            --query 'repositories[0].repositoryUri' \
+            --output text)
+
+          if aws ecr describe-images --repository-name "${{ matrix.lab.ecr_repository_name }}" --image-ids "imageTag=${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "Reusing existing image ${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+          else
+            REGISTRY=${ECR_REPOSITORY_URL%/*}
+            aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+            docker tag "cidr-calculator:deploy-${GITHUB_SHA}-${{ matrix.lab.id }}" "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+            docker push "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+          fi
+
+          # Keep AWS authority scoped to ECR push/reuse before the GCP-only
+          # pre-approval Terraform plan runs through Workload Identity Federation.
+          {
+            echo "AWS_ACCESS_KEY_ID="
+            echo "AWS_SECRET_ACCESS_KEY="
+            echo "AWS_SESSION_TOKEN="
+            echo "AWS_REGION="
+            echo "AWS_DEFAULT_REGION="
+          } >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+
+      - name: Authenticate to GCP through WIF plan identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ matrix.lab.gcp_plan_service_account }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Write Terraform backend and variable files
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket = "${GCP_STATE_BUCKET}"
+          prefix = "${{ matrix.lab.state_prefix }}"
+          EOF_BACKEND
+
+          cat > deploy.auto.tfvars <<EOF_TFVARS
+          gcp_project_id                  = "${GCP_PROJECT_ID}"
+          gcp_region                      = "${GCP_REGION}"
+          artifact_registry_repository_id = "${{ matrix.lab.artifact_registry_repository_id }}"
+          image_tag                       = "${IMAGE_TAG}"
+          EOF_TFVARS
+
+          if [ -n "${{ matrix.lab.gcp_zone }}" ]; then
+            printf '\ngcp_zone = "%s"\n' "${{ matrix.lab.gcp_zone }}" >> deploy.auto.tfvars
+          fi
+
+      - name: Terraform fmt, validate, test, and pre-approval plan
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive ../..
+          terraform init -backend-config=backend.hcl
+          terraform validate
+          terraform test
+          terraform plan -refresh=false -input=false -lock=false -no-color
+
+  approve-mirror-apply-smoke:
+    name: ${{ matrix.lab.id }} approved mirror, apply, and smoke test
+    needs: [detect-labs, preflight-build-push-plan]
+    if: needs.detect-labs.outputs.has_labs == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.lab.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lab: ${{ fromJson(needs.detect-labs.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to AWS for ECR pull only
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        with:
+          role-to-assume: ${{ matrix.lab.aws_ecr_pull_role_arn }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Pull canonical ECR image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ECR_REPOSITORY_URL=$(aws ecr describe-repositories \
+            --repository-names "${{ matrix.lab.ecr_repository_name }}" \
+            --query 'repositories[0].repositoryUri' \
+            --output text)
+          echo "ECR_REPOSITORY_URL=${ECR_REPOSITORY_URL}" >> "$GITHUB_ENV"
+
+          REGISTRY=${ECR_REPOSITORY_URL%/*}
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+          docker pull "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+
+          # Keep AWS authority scoped to the completed ECR operation before GCP
+          # Artifact Registry and Terraform steps run in later steps.
+          {
+            echo "AWS_ACCESS_KEY_ID="
+            echo "AWS_SECRET_ACCESS_KEY="
+            echo "AWS_SESSION_TOKEN="
+            echo "AWS_REGION="
+            echo "AWS_DEFAULT_REGION="
+          } >> "$GITHUB_ENV"
+
+      - name: Authenticate to GCP through WIF apply identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ matrix.lab.gcp_apply_service_account }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Install gcloud
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+
+      - name: Mirror immutable tag to Artifact Registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          AR_HOST="${GCP_REGION}-docker.pkg.dev"
+          AR_IMAGE="${AR_HOST}/${GCP_PROJECT_ID}/${{ matrix.lab.artifact_registry_repository_id }}/${SERVICE_NAME}:${IMAGE_TAG}"
+          gcloud auth configure-docker "$AR_HOST" --quiet
+          docker tag "${ECR_REPOSITORY_URL}:${IMAGE_TAG}" "$AR_IMAGE"
+          docker push "$AR_IMAGE"
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+
+      - name: Write Terraform backend and variable files
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > backend.hcl <<EOF_BACKEND
+          bucket = "${GCP_STATE_BUCKET}"
+          prefix = "${{ matrix.lab.state_prefix }}"
+          EOF_BACKEND
+
+          cat > deploy.auto.tfvars <<EOF_TFVARS
+          gcp_project_id                  = "${GCP_PROJECT_ID}"
+          gcp_region                      = "${GCP_REGION}"
+          artifact_registry_repository_id = "${{ matrix.lab.artifact_registry_repository_id }}"
+          image_tag                       = "${IMAGE_TAG}"
+          EOF_TFVARS
+
+          if [ -n "${{ matrix.lab.gcp_zone }}" ]; then
+            printf '\ngcp_zone = "%s"\n' "${{ matrix.lab.gcp_zone }}" >> deploy.auto.tfvars
+          fi
+
+      - name: Terraform apply explicit image tag
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -backend-config=backend.hcl
+          terraform plan -input=false -var="image_tag=${IMAGE_TAG}"
+          terraform apply -input=false -auto-approve -var="image_tag=${IMAGE_TAG}"
+
+      - name: Deployed smoke test
+        working-directory: ${{ matrix.lab.path }}/infra/stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE_URL=$(terraform output -raw service_url)
+          for _ in {1..60}; do
+            BODY=$(curl -fsSL "$SERVICE_URL" || true)
+            if printf '%s' "$BODY" | grep -q "CIDR Calculator"; then
+              echo "Smoke test passed: $SERVICE_URL"
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Smoke test failed: $SERVICE_URL"
+          if [ "${{ matrix.lab.runtime_kind }}" = "gce" ]; then
+            echo "Instance: $(terraform output -raw instance_name || true)"
+            echo "Public IP: $(terraform output -raw public_ip || true)"
+            echo "Serial logs command: $(terraform output -raw serial_port_logs_command || true)"
+            echo "IAP SSH command: $(terraform output -raw iap_ssh_command || true)"
+            echo "Docker status command: $(terraform output -raw docker_status_command || true)"
+            echo "Container image: $(terraform output -raw container_image || true)"
+          fi
+          exit 1
