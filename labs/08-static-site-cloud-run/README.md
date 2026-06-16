@@ -162,7 +162,7 @@ Use `.github/workflows/gcp-runtime-destroy.yml` for gated runtime teardown:
 2. Select `08-static-site-cloud-run`.
 3. Approve the `lab-08-stage` GitHub Environment prompt.
 
-After approval, the workflow authenticates to GCP through Workload Identity Federation as `lab-08-cloudrun-apply@portfolio-devops-labs.iam.gserviceaccount.com`, initializes only `labs/08-static-site-cloud-run/infra/stage`, and runs `terraform destroy` against the runtime state prefix `gcp/runtime/labs/08-static-site-cloud-run/stage`. It does not initialize or destroy the shared GCP bootstrap root or the Lab 08 bootstrap root.
+After approval, the workflow authenticates to GCP through Workload Identity Federation as `devops-cloudrun-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com`, initializes only `labs/08-static-site-cloud-run/infra/stage`, and runs `terraform destroy` against the runtime state prefix `gcp/runtime/labs/08-static-site-cloud-run/stage`. It does not initialize or destroy the shared GCP bootstrap root or the Lab 08 bootstrap root.
 
 The workflow validates teardown by confirming the previous HTTPS endpoint no longer responds, the Cloud Run service is no longer describable, and durable GCP bootstrap resources remain addressable: the GCS state bucket, Artifact Registry repository, apply service account, and apply custom role. AWS-side ECR image history is intentionally outside this GCP-only runtime destroy path and remains owned by the Lab 08 bootstrap resources.
 

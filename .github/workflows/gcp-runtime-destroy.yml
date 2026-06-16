@@ -54,7 +54,7 @@ jobs:
             08-static-site-cloud-run)
               echo "artifact_registry_repository_id=devops-static-site-cloud-run-stage-cidr-calculator" >> "$GITHUB_OUTPUT"
               echo "apply_role_id=lab08CloudRunApply" >> "$GITHUB_OUTPUT"
-              echo "apply_service_account=lab-08-cloudrun-apply@portfolio-devops-labs.iam.gserviceaccount.com" >> "$GITHUB_OUTPUT"
+              echo "apply_service_account=devops-cloudrun-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com" >> "$GITHUB_OUTPUT"
               echo "environment=lab-08-stage" >> "$GITHUB_OUTPUT"
               echo "gcp_zone=" >> "$GITHUB_OUTPUT"
               echo "lab_path=labs/08-static-site-cloud-run" >> "$GITHUB_OUTPUT"

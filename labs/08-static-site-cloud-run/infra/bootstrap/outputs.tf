@@ -33,19 +33,19 @@ output "gcp_apply_service_account_email" {
   value       = google_service_account.apply.email
 }
 
-output "gcp_workload_identity_provider" {
-  description = "Shared GitHub Workload Identity provider resource name for auth actions."
-  value       = local.gcp_wif_provider_name
+output "github_wif_provider_name" {
+  description = "Shared GitHub Workload Identity Federation provider name for google-github-actions/auth."
+  value       = var.github_wif_provider_name
 }
 
-output "gcp_plan_principal_set" {
-  description = "Repository-scoped WIF principal set granted plan service account impersonation."
-  value       = local.gcp_plan_principal_set
+output "github_wif_plan_members" {
+  description = "GitHub OIDC subjects allowed to impersonate the plan service account."
+  value       = local.plan_wif_members
 }
 
-output "gcp_apply_principal" {
-  description = "Protected-environment WIF principal granted apply service account impersonation."
-  value       = local.gcp_apply_principal
+output "github_wif_apply_members" {
+  description = "GitHub OIDC subjects allowed to impersonate the protected-environment apply service account."
+  value       = local.apply_wif_members
 }
 
 output "gcp_plan_role_id" {
