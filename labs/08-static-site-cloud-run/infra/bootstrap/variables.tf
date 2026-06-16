@@ -37,8 +37,8 @@ variable "environment" {
   default     = "stage"
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{0,29}$", var.environment))
-    error_message = "environment must be 1-30 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
+    condition     = can(regex("^[a-z][a-z0-9-]{0,7}$", var.environment))
+    error_message = "environment must be 1-8 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
   }
 }
 
@@ -48,8 +48,8 @@ variable "project_name" {
   default     = "static-site-cloud-run"
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{0,29}$", var.project_name))
-    error_message = "project_name must be 1-30 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
+    condition     = can(regex("^[a-z][a-z0-9-]{0,22}$", var.project_name))
+    error_message = "project_name must be 1-23 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
   }
 }
 
@@ -59,8 +59,8 @@ variable "service_name" {
   default     = "cidr-calculator"
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{0,29}$", var.service_name))
-    error_message = "service_name must be 1-30 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
+    condition     = can(regex("^[a-z][a-z0-9-]{0,22}$", var.service_name))
+    error_message = "service_name must be 1-23 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
   }
 }
 

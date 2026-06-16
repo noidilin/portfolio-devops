@@ -1,77 +1,7 @@
-mock_provider "aws" {
-  mock_data "aws_caller_identity" {
-    defaults = {
-      account_id = "123456789012"
-    }
-  }
-}
-
 override_data {
-  target = data.aws_iam_policy_document.github_plan_assume_role
+  target = data.aws_caller_identity.current
   values = {
-    json = jsonencode({
-      Version = "2012-10-17"
-      Statement = [{
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Principal = {
-          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
-        }
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = [
-              "repo:OWNER/REPO:pull_request",
-              "repo:OWNER/REPO:ref:refs/heads/main",
-            ]
-          }
-        }
-      }]
-    })
-  }
-}
-
-override_data {
-  target = data.aws_iam_policy_document.github_image_push_assume_role
-  values = {
-    json = jsonencode({
-      Version = "2012-10-17"
-      Statement = [{
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Principal = {
-          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
-        }
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = "repo:OWNER/REPO:ref:refs/heads/main"
-          }
-        }
-      }]
-    })
-  }
-}
-
-override_data {
-  target = data.aws_iam_policy_document.github_apply_assume_role
-  values = {
-    json = jsonencode({
-      Version = "2012-10-17"
-      Statement = [{
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Principal = {
-          Federated = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
-        }
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = "repo:OWNER/REPO:environment:lab-06-stage"
-          }
-        }
-      }]
-    })
+    account_id = "123456789012"
   }
 }
 
@@ -160,12 +90,12 @@ run "lab06_bootstrap_contract" {
   }
 
   assert {
-    condition     = strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "token.actions.githubusercontent.com:aud") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "sts.amazonaws.com") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:pull_request") && strcontains(data.aws_iam_policy_document.github_plan_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main")
+    condition     = strcontains(aws_iam_role.github_plan.assume_role_policy, "token.actions.githubusercontent.com:aud") && strcontains(aws_iam_role.github_plan.assume_role_policy, "sts.amazonaws.com") && strcontains(aws_iam_role.github_plan.assume_role_policy, "repo:OWNER/REPO:pull_request") && strcontains(aws_iam_role.github_plan.assume_role_policy, "repo:OWNER/REPO:ref:refs/heads/main")
     error_message = "Plan role trust must stay scoped to the GitHub OIDC audience and PR/main subjects."
   }
 
   assert {
-    condition     = strcontains(data.aws_iam_policy_document.github_image_push_assume_role.json, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(data.aws_iam_policy_document.github_apply_assume_role.json, "repo:OWNER/REPO:environment:lab-06-stage") && aws_iam_role.github_apply.assume_role_policy == data.aws_iam_policy_document.github_apply_assume_role.json
+    condition     = strcontains(aws_iam_role.github_image_push.assume_role_policy, "repo:OWNER/REPO:ref:refs/heads/main") && strcontains(aws_iam_role.github_apply.assume_role_policy, "repo:OWNER/REPO:environment:lab-06-stage") && aws_iam_role.github_apply.assume_role_policy == data.aws_iam_policy_document.github_apply_assume_role.json
     error_message = "Image push trust should stay on main and apply trust should stay scoped to the protected Lab 06 environment."
   }
 
@@ -203,11 +133,15 @@ run "lab06_bootstrap_state_scope_contract" {
   }
 
   assert {
-    condition = alltrue([
+    condition = length(flatten([
+      for s in jsondecode(aws_iam_policy.github_plan.policy).Statement :
+      try(tolist(s.Resource), [s.Resource])
+      if contains(try(tolist(s.Action), [s.Action]), "s3:PutObject") || contains(try(tolist(s.Action), [s.Action]), "s3:DeleteObject")
+      ])) > 0 && alltrue([
       for r in flatten([
         for s in jsondecode(aws_iam_policy.github_plan.policy).Statement :
-        tolist(s.Resource)
-        if contains(tolist(s.Action), "s3:PutObject") || contains(tolist(s.Action), "s3:DeleteObject")
+        try(tolist(s.Resource), [s.Resource])
+        if contains(try(tolist(s.Action), [s.Action]), "s3:PutObject") || contains(try(tolist(s.Action), [s.Action]), "s3:DeleteObject")
       ]) : endswith(r, ".tflock")
     ])
     error_message = "Plan role may only mutate the .tflock lock object, never the stage state object itself."
@@ -224,7 +158,21 @@ run "lab06_bootstrap_state_scope_contract" {
   }
 
   assert {
-    condition     = strcontains(aws_iam_policy.github_plan.policy, "infra/stage/") && strcontains(aws_iam_policy.github_apply.policy, "infra/stage/")
+    condition = alltrue([
+      for s in jsondecode(aws_iam_policy.github_plan.policy).Statement :
+      try(s.Condition.StringLike["s3:prefix"], []) == ["labs/06-static-site-ecs/infra/stage/*"]
+      if s.Sid == "AllowTerraformStateList"
+      ]) && length([
+      for s in jsondecode(aws_iam_policy.github_plan.policy).Statement : s
+      if s.Sid == "AllowTerraformStateList"
+      ]) == 1 && alltrue([
+      for s in jsondecode(aws_iam_policy.github_apply.policy).Statement :
+      try(s.Condition.StringLike["s3:prefix"], []) == ["labs/06-static-site-ecs/infra/stage/*"]
+      if s.Sid == "AllowTerraformStateList"
+      ]) && length([
+      for s in jsondecode(aws_iam_policy.github_apply.policy).Statement : s
+      if s.Sid == "AllowTerraformStateList"
+    ]) == 1
     error_message = "S3 ListBucket prefix conditions must be scoped to the runtime stage prefix."
   }
 }

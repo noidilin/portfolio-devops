@@ -11,7 +11,7 @@ workflows=(
 require_text() {
   local text=$1
   local file=$2
-  if ! rg -Fq -- "$text" "$file"; then
+  if ! grep -Fq -- "$text" "$file"; then
     echo "Missing required text in ${file}: ${text}" >&2
     return 1
   fi
@@ -20,7 +20,7 @@ require_text() {
 reject_pattern() {
   local pattern=$1
   shift
-  if rg -n -- "$pattern" "$@"; then
+  if grep -En -- "$pattern" "$@"; then
     echo "Rejected legacy workflow consumer pattern matched: ${pattern}" >&2
     return 1
   fi

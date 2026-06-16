@@ -23,7 +23,7 @@ GCP uses a shared-project bootstrap root at [`bootstrap/gcp`](bootstrap/gcp/) fo
 - Budget guardrail.
 - Shared GitHub Workload Identity Federation pool/provider.
 
-Per-lab GCP bootstrap roots consume the shared outputs (`project_id`, `project_number`, `state_bucket_name`, `github_wif_pool_name`, and `github_wif_provider_name`) and create lab-owned Artifact Registry repositories, service accounts, custom roles, WIF impersonation bindings, state IAM grants, and AWS ECR/image roles.
+Per-lab GCP bootstrap roots consume the shared outputs (`project_id`, `project_number`, `state_bucket_name`, `github_wif_pool_name`, and `github_wif_provider_name`) and create lab-owned Artifact Registry repositories, service accounts, custom roles, WIF impersonation bindings, and state IAM grants.
 
 ## Manual bootstrap sequence after merge/refactor
 

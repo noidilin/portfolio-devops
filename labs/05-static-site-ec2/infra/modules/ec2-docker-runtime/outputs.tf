@@ -55,7 +55,7 @@ output "instance_type" {
 
 output "root_volume_size_gb" {
   description = "Root EBS volume size in GiB."
-  value       = var.root_volume_size_gb
+  value       = aws_instance.service.root_block_device[0].volume_size
 }
 
 output "root_volume_type" {
@@ -75,5 +75,8 @@ output "container_port" {
 
 output "ssh_ingress_enabled" {
   description = "Whether the learner-facing security group exposes SSH ingress. Lab 05 uses SSM Session Manager instead."
-  value       = false
+  value = anytrue([
+    for rule in values(aws_vpc_security_group_ingress_rule.http) :
+    rule.ip_protocol == "tcp" && rule.from_port <= 22 && rule.to_port >= 22
+  ])
 }
