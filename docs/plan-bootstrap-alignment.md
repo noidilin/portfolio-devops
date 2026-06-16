@@ -18,7 +18,7 @@ This plan intentionally aligns root-level Terraform code without extracting shar
 - `labs/07-static-site-gce/infra/bootstrap`
 - `labs/08-static-site-cloud-run/infra/bootstrap`
 - Bootstrap-related CI workflows:
-  - `.github/workflows/ec2-ecs-ci.yml`
+  - `.github/workflows/aws-runtime-ci.yml`
   - `.github/workflows/gcp-bootstrap-ci.yml`
   - any deploy/destroy workflow references to bootstrap outputs/role names if affected
 - Lab/root README files and bootstrap runbooks

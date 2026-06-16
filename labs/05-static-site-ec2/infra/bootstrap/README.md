@@ -112,4 +112,4 @@ and then assume the lab-specific role with `aws-actions/configure-aws-credential
 
 ## Runtime destroy boundary
 
-Runtime teardown (`labs/05-static-site-ec2/infra/stage` `terraform destroy`, or the `ec2-ecs-destroy` workflow) removes only disposable workload resources such as the EC2 instance, instance profile, and security group. Runtime destroy must never remove this root's ECR repository, image history, GitHub OIDC roles, attached policies, permissions boundaries, or the Terraform state foundations.
+Runtime teardown (`labs/05-static-site-ec2/infra/stage` `terraform destroy`, or the `aws-runtime-destroy` workflow) removes only disposable workload resources such as the EC2 instance, instance profile, and security group. Runtime destroy must never remove this root's ECR repository, image history, GitHub OIDC roles, attached policies, permissions boundaries, or the Terraform state foundations.

@@ -1,7 +1,7 @@
 name: gcp-runtime-ci
 
 # Separate GCP pull-request CI for the GCE (Lab 07) and Cloud Run (Lab 08)
-# runtime stage roots. Mirrors the AWS ec2-ecs-ci prior art (shared app
+# runtime stage roots. Mirrors the AWS aws-runtime-ci prior art (shared app
 # checks, per-lab Docker smoke, reviewer-friendly Terraform plan comment) but
 # authenticates to GCP through Workload Identity Federation and the per-lab GCP
 # plan identities. The workflow only plans: it never applies, destroys, pushes

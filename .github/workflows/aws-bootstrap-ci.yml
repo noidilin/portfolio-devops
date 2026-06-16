@@ -8,10 +8,10 @@ on:
       - "labs/05-static-site-ec2/infra/bootstrap/**"
       - "labs/06-static-site-ecs/infra/bootstrap/**"
       - ".github/workflows/aws-bootstrap-ci.yml"
-      - ".github/workflows/ec2-ecs-ci.yml"
-      - ".github/workflows/ec2-ecs-deploy.yml"
-      - ".github/workflows/ec2-ecs-destroy.yml"
-      - "scripts/validate-aws-workflow-consumers.sh"
+      - ".github/workflows/aws-runtime-ci.yml"
+      - ".github/workflows/aws-runtime-deploy.yml"
+      - ".github/workflows/aws-runtime-destroy.yml"
+      - ".github/scripts/validate-aws-workflow-consumers.sh"
   workflow_dispatch:
 
 permissions:
@@ -30,7 +30,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate canonical workflow consumers
-        run: scripts/validate-aws-workflow-consumers.sh
+        run: .github/scripts/validate-aws-workflow-consumers.sh
 
   shared-bootstrap-static-checks:
     name: Shared bootstrap fmt/validate/test
