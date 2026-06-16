@@ -26,17 +26,18 @@ The human bootstrap operator also needs local AWS credentials with enough IAM ac
 
 ## Configure backend and variables
 
-Copy the backend example to the ignored local file and fill in your account-specific state bucket and region:
+Copy the backend and variable examples to ignored local files, then fill in account-specific values:
 
 ```sh
-cd infra/account-bootstrap/github-oidc-provider
+cd infra/bootstrap/aws
 cp backend.hcl.example backend.hcl
-$EDITOR backend.hcl
+cp terraform.tfvars.example terraform.tfvars
+$EDITOR backend.hcl terraform.tfvars
 ```
 
-`backend.hcl` is ignored by Git because it contains real account identifiers. Commit only `backend.hcl.example` with placeholder values.
+`backend.hcl` is ignored by Git because it contains real account identifiers. `terraform.tfvars` is ignored so local tag/region choices stay operator-specific. Commit only the `.example` files with placeholder values.
 
-This root exposes two optional variables and has sensible defaults, so no `tfvars` file is required for a standard apply:
+Normal variables:
 
 - `aws_region` (default `ap-northeast-1`) — region used for provider operations. IAM resources are global.
 - `tags` (default project/environment/managed-by map) — tags applied to the OIDC provider. Note the resource ignores tag drift because GitHub/AWS managed tag values can change out of band.
@@ -46,20 +47,20 @@ This root exposes two optional variables and has sensible defaults, so no `tfvar
 Static checks (backend disabled, as CI runs them):
 
 ```sh
-terraform -chdir=infra/account-bootstrap/github-oidc-provider fmt -check -recursive
-terraform -chdir=infra/account-bootstrap/github-oidc-provider init -backend=false
-terraform -chdir=infra/account-bootstrap/github-oidc-provider validate
+terraform -chdir=infra/bootstrap/aws fmt -check -recursive
+terraform -chdir=infra/bootstrap/aws init -backend=false
+terraform -chdir=infra/bootstrap/aws validate
 ```
 
 Local apply with the operator's real backend:
 
 ```sh
-cd infra/account-bootstrap/github-oidc-provider
+cd infra/bootstrap/aws
 terraform init -backend-config=backend.hcl
 terraform fmt -recursive
 terraform validate
-terraform plan
-terraform apply
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars
 terraform output
 ```
 

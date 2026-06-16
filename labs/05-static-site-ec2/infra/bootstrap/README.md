@@ -15,7 +15,7 @@ This root manages exactly the durable runtime CI/CD identity and artifact model 
 - `aws_iam_role.github_apply` — GitHub OIDC role for approved apply/destroy jobs (runtime stage mutation).
 - `aws_iam_policy.github_plan` / `github_image_push` / `github_apply` — least-privilege permissions attached to the matching roles.
 
-The roles trust the shared account GitHub OIDC provider managed by `infra/account-bootstrap/github-oidc-provider`.
+The roles trust the shared account GitHub OIDC provider managed by `infra/bootstrap/aws`.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ The following AWS account prerequisites are external to this root and are manage
 - The S3 Terraform state bucket (account-specific; configured in the ignored local `backend.hcl`).
 - The `lab-devops-permissions-boundary` permissions boundary.
 - The `lab-gitops-oidc-apply-permissions-boundary` permissions boundary used by the GitHub apply role.
-- The account GitHub OIDC provider for `token.actions.githubusercontent.com` (created by `infra/account-bootstrap/github-oidc-provider`).
+- The account GitHub OIDC provider for `token.actions.githubusercontent.com` (created by `infra/bootstrap/aws`).
 - A GitHub Environment named `lab-05-stage` with required reviewers configured for approved apply/destroy.
 
 See [`docs/aws-sandbox/`](../../../../docs/aws-sandbox/) for the sandbox IAM setup and permissions-boundary definitions.

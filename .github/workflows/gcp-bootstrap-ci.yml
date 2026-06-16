@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "infra/gcp-bootstrap/**"
+      - "infra/bootstrap/**"
       - "labs/07-static-site-gce/infra/bootstrap/**"
       - "labs/08-static-site-cloud-run/infra/bootstrap/**"
       - ".github/workflows/gcp-bootstrap-ci.yml"
@@ -51,7 +51,7 @@ jobs:
           persist-credentials: false
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
       - name: Terraform fmt, validate, and tests
-        working-directory: infra/gcp-bootstrap/shared-project
+        working-directory: infra/bootstrap/gcp
         shell: bash
         run: |
           set -euo pipefail

@@ -8,8 +8,8 @@ Bootstrap READMEs now use the canonical sections: Purpose, Prerequisites, Config
 
 Checked roots:
 
-- `infra/account-bootstrap/github-oidc-provider/README.md`
-- `infra/gcp-bootstrap/shared-project/README.md`
+- `infra/bootstrap/aws/README.md`
+- `infra/bootstrap/gcp/README.md`
 - `labs/05-static-site-ec2/infra/bootstrap/README.md`
 - `labs/06-static-site-ecs/infra/bootstrap/README.md`
 - `labs/07-static-site-gce/infra/bootstrap/README.md`
@@ -18,8 +18,8 @@ Checked roots:
 Central docs now record the AWS external-prerequisite model, the GCP shared-project bootstrap model, the per-lab bootstrap relationship, and the manual sequence from AWS sandbox prerequisites through Lab 08 bootstrap and PR CI/live-plan reruns:
 
 - `infra/README.md`
-- `infra/gcp-bootstrap/README.md`
-- `infra/gcp-bootstrap/shared-project/README.md`
+- `infra/bootstrap/README.md`
+- `infra/bootstrap/gcp/README.md`
 - `docs/plan-bootstrap-alignment.md`
 
 Lab READMEs and bootstrap READMEs reference the canonical bootstrap names, outputs, GitHub Environment subjects, and runtime destroy boundaries. Local apply guidance is limited to human bootstrap setup and plan-only runtime previews; the learner provisioning path remains approved deploy/destroy workflows.
@@ -30,8 +30,8 @@ All commands were run locally on 2026-06-16.
 
 | Root | fmt | init -backend=false | validate | test |
 | --- | --- | --- | --- | --- |
-| `infra/account-bootstrap/github-oidc-provider` | pass | pass | pass | n/a |
-| `infra/gcp-bootstrap/shared-project` | pass | pass | pass | pass, 1 passed |
+| `infra/bootstrap/aws` | pass | pass | pass | n/a |
+| `infra/bootstrap/gcp` | pass | pass | pass | pass, 1 passed |
 | `labs/05-static-site-ec2/infra/bootstrap` | pass | pass | pass | pass, 2 passed |
 | `labs/06-static-site-ecs/infra/bootstrap` | pass | pass | pass | pass, 2 passed |
 | `labs/07-static-site-gce/infra/bootstrap` | pass | pass | pass | pass, 2 passed |
@@ -88,8 +88,8 @@ Canonical README section check:
 
 ```sh
 for f in \
-  infra/account-bootstrap/github-oidc-provider/README.md \
-  infra/gcp-bootstrap/shared-project/README.md \
+  infra/bootstrap/aws/README.md \
+  infra/bootstrap/gcp/README.md \
   labs/05-static-site-ec2/infra/bootstrap/README.md \
   labs/06-static-site-ecs/infra/bootstrap/README.md \
   labs/07-static-site-gce/infra/bootstrap/README.md \

@@ -12,11 +12,11 @@ AWS keeps account-specific foundations as external sandbox prerequisites documen
 - `lab-devops-permissions-boundary`.
 - `lab-gitops-oidc-apply-permissions-boundary`.
 
-Terraform manages only the shared GitHub OIDC provider in [`account-bootstrap/github-oidc-provider`](account-bootstrap/github-oidc-provider/). Per-lab AWS bootstrap roots derive the provider ARN and create their own durable ECR repositories plus GitHub OIDC plan/image/apply roles.
+Terraform manages only the shared GitHub OIDC provider in [`bootstrap/aws`](bootstrap/aws/). Per-lab AWS bootstrap roots derive the provider ARN and create their own durable ECR repositories plus GitHub OIDC plan/image/apply roles.
 
 ### GCP shared project bootstrap
 
-GCP uses a shared-project bootstrap root at [`gcp-bootstrap/shared-project`](gcp-bootstrap/shared-project/) for foundations that are naturally project-scoped:
+GCP uses a shared-project bootstrap root at [`bootstrap/gcp`](bootstrap/gcp/) for foundations that are naturally project-scoped:
 
 - Required APIs.
 - Shared GCS Terraform state bucket.
@@ -28,10 +28,10 @@ Per-lab GCP bootstrap roots consume the shared outputs (`project_id`, `project_n
 ## Manual bootstrap sequence after merge/refactor
 
 1. Ensure the AWS sandbox prerequisites in [`docs/aws-sandbox/`](../docs/aws-sandbox/) exist.
-2. Apply [`account-bootstrap/github-oidc-provider`](account-bootstrap/github-oidc-provider/) with a local ignored `backend.hcl`.
+2. Apply [`bootstrap/aws`](bootstrap/aws/) with a local ignored `backend.hcl`.
 3. Apply [`../labs/05-static-site-ec2/infra/bootstrap`](../labs/05-static-site-ec2/infra/bootstrap/).
 4. Apply [`../labs/06-static-site-ecs/infra/bootstrap`](../labs/06-static-site-ecs/infra/bootstrap/).
-5. Apply [`gcp-bootstrap/shared-project`](gcp-bootstrap/shared-project/) if the shared GCP project foundations are not already applied.
+5. Apply [`bootstrap/gcp`](bootstrap/gcp/) if the shared GCP project foundations are not already applied.
 6. Apply [`../labs/07-static-site-gce/infra/bootstrap`](../labs/07-static-site-gce/infra/bootstrap/) using the shared GCP bootstrap outputs.
 7. Apply [`../labs/08-static-site-cloud-run/infra/bootstrap`](../labs/08-static-site-cloud-run/infra/bootstrap/) using the shared GCP bootstrap outputs.
 8. Confirm GitHub Environments exist and have required reviewers: `lab-05-stage`, `lab-06-stage`, `lab-07-stage`, and `lab-08-stage`.

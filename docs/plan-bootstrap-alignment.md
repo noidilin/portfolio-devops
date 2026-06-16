@@ -12,7 +12,7 @@ This plan intentionally aligns root-level Terraform code without extracting shar
 
 ### In scope
 
-- `infra/account-bootstrap/github-oidc-provider`
+- `infra/bootstrap/aws`
 - `labs/05-static-site-ec2/infra/bootstrap`
 - `labs/06-static-site-ecs/infra/bootstrap`
 - `labs/07-static-site-gce/infra/bootstrap`
@@ -42,8 +42,8 @@ AWS and GCP are intentionally not perfectly symmetrical:
   - S3 Terraform state bucket
   - `lab-devops-permissions-boundary`
   - `lab-gitops-oidc-apply-permissions-boundary`
-- AWS Terraform manages the shared GitHub OIDC provider only in `infra/account-bootstrap/github-oidc-provider`.
-- GCP Terraform manages shared project bootstrap in `infra/gcp-bootstrap/shared-project`, including:
+- AWS Terraform manages the shared GitHub OIDC provider only in `infra/bootstrap/aws`.
+- GCP Terraform manages shared project bootstrap in `infra/bootstrap/gcp`, including:
   - GCS state bucket
   - project APIs
   - budget guardrail
@@ -107,12 +107,12 @@ GCP-runtime labs 07/08 create:
 
 Current drift:
 
-- `infra/account-bootstrap/github-oidc-provider/backend.hcl` is tracked and contains real account state settings.
+- `infra/bootstrap/aws/backend.hcl` is tracked and contains real account state settings.
 - Lab bootstrap roots use `backend.hcl.example` plus ignored local `backend.hcl`.
 
 Target:
 
-- Add `infra/account-bootstrap/github-oidc-provider/backend.hcl.example`.
+- Add `infra/bootstrap/aws/backend.hcl.example`.
 - Remove tracked real `backend.hcl` from Git.
 - Ensure `.gitignore` ignores real `backend.hcl` files consistently.
 
@@ -325,8 +325,8 @@ Do not grant apply identities broad objectAdmin over the whole shared state buck
 
 ### Phase 1: account-bootstrap backend alignment
 
-1. Create `infra/account-bootstrap/github-oidc-provider/backend.hcl.example` with placeholder S3 backend settings.
-2. Remove tracked `infra/account-bootstrap/github-oidc-provider/backend.hcl` from Git.
+1. Create `infra/bootstrap/aws/backend.hcl.example` with placeholder S3 backend settings.
+2. Remove tracked `infra/bootstrap/aws/backend.hcl` from Git.
 3. Confirm `.gitignore` ignores real `backend.hcl` files.
 4. Add or update README for this root with:
    - purpose
@@ -432,7 +432,7 @@ For each bootstrap root README, use these sections:
 Update central docs:
 
 - `infra/README.md`
-- `infra/gcp-bootstrap/README.md`
+- `infra/bootstrap/README.md`
 - lab READMEs where bootstrap names, outputs, or workflow identities are referenced
 - `docs/validation/issue-41-code-pattern-alignment-validation.md` after validation is complete
 
@@ -441,9 +441,9 @@ Update central docs:
 Run static validation for all bootstrap roots:
 
 ```sh
-terraform -chdir=infra/account-bootstrap/github-oidc-provider fmt -check -recursive
-terraform -chdir=infra/account-bootstrap/github-oidc-provider init -backend=false
-terraform -chdir=infra/account-bootstrap/github-oidc-provider validate
+terraform -chdir=infra/bootstrap/aws fmt -check -recursive
+terraform -chdir=infra/bootstrap/aws init -backend=false
+terraform -chdir=infra/bootstrap/aws validate
 
 terraform -chdir=labs/05-static-site-ec2/infra/bootstrap fmt -check -recursive
 terraform -chdir=labs/05-static-site-ec2/infra/bootstrap init -backend=false

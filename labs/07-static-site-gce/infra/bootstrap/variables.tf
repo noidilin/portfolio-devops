@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 
 variable "gcp_project_id" {
-  description = "Existing GCP project ID bootstrapped by infra/gcp-bootstrap/shared-project."
+  description = "Existing GCP project ID bootstrapped by infra/bootstrap/gcp."
   type        = string
 
   validation {
