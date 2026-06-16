@@ -71,7 +71,14 @@ jobs:
               08-static-site-cloud-run) include_08=true ;;
             esac
           else
-            CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+            BEFORE="${{ github.event.before }}"
+            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              include_07=true
+              include_08=true
+              CHANGED=""
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+            fi
             echo "$CHANGED"
 
             if grep -Eq '^(apps/cidr-calculator/|\.github/workflows/gcp-runtime-deploy\.yml)' <<<"$CHANGED"; then

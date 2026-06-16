@@ -19,7 +19,6 @@ on:
       - ".github/workflows/aws-runtime-deploy.yml"
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -108,6 +107,9 @@ jobs:
 
   preflight-build-push-plan:
     needs: detect-labs
+    permissions:
+      contents: read
+      id-token: write
     if: needs.detect-labs.outputs.has_labs == 'true'
     runs-on: ubuntu-latest
     strategy:
@@ -196,6 +198,9 @@ jobs:
 
   approve-and-apply:
     needs: [detect-labs, preflight-build-push-plan]
+    permissions:
+      contents: read
+      id-token: write
     if: needs.detect-labs.outputs.has_labs == 'true'
     runs-on: ubuntu-latest
     strategy:
