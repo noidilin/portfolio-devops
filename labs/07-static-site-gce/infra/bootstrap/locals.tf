@@ -9,6 +9,7 @@ locals {
   apply_role_id            = "lab07GceApply"
   github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
   permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/lab-gitops-oidc-apply-permissions-boundary"
+  gcp_bootstrap_prefix     = "gcp/bootstrap/labs/${local.lab_id}/"
   gcp_state_prefix         = "gcp/runtime/labs/${local.lab_id}/${var.environment}/"
 
   plan_wif_members = [
@@ -51,8 +52,6 @@ locals {
     "serviceusage.services.list",
     "storage.buckets.get",
     "storage.buckets.getIamPolicy",
-    "storage.objects.get",
-    "storage.objects.list",
   ]
 
   apply_permissions = distinct(concat(local.plan_permissions, [
@@ -93,10 +92,6 @@ locals {
     "iam.serviceAccounts.setIamPolicy",
     "iam.serviceAccounts.update",
     "resourcemanager.projects.setIamPolicy",
-    "storage.buckets.setIamPolicy",
-    "storage.objects.create",
-    "storage.objects.delete",
-    "storage.objects.update",
   ]))
 
   aws_tags = merge(var.aws_tags, {
@@ -107,9 +102,9 @@ locals {
   })
 
   gcp_labels = merge(var.gcp_labels, {
-    project     = "devops-lab"
+    project     = var.project_name
     environment = var.environment
-    lab         = "07-static-site-gce"
+    lab         = local.lab_id
     managed_by  = "terraform"
     service     = var.service_name
   })

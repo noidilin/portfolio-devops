@@ -30,17 +30,17 @@ output "github_image_pull_role_arn" {
 
 output "artifact_registry_repository_id" {
   description = "Artifact Registry Docker repository ID used as the GCE mirror destination."
-  value       = google_artifact_registry_repository.mirror.repository_id
+  value       = google_artifact_registry_repository.service.repository_id
 }
 
 output "artifact_registry_repository_name" {
   description = "Full Artifact Registry repository resource name."
-  value       = google_artifact_registry_repository.mirror.name
+  value       = google_artifact_registry_repository.service.name
 }
 
 output "artifact_registry_image_base" {
   description = "Base Docker image path for mirrored images consumed by future GCE runtime Terraform."
-  value       = "${var.gcp_region}-docker.pkg.dev/${var.gcp_project_id}/${google_artifact_registry_repository.mirror.repository_id}/${var.service_name}"
+  value       = "${var.gcp_region}-docker.pkg.dev/${var.gcp_project_id}/${google_artifact_registry_repository.service.repository_id}/${var.service_name}"
 }
 
 output "gcp_plan_service_account_email" {
@@ -83,12 +83,12 @@ output "github_wif_apply_members" {
   value       = local.apply_wif_members
 }
 
-output "terraform_state_bucket_name" {
+output "gcp_state_bucket_name" {
   description = "Shared GCS Terraform state bucket used by this bootstrap and future Lab 07 runtime roots."
-  value       = var.terraform_state_bucket_name
+  value       = var.gcp_state_bucket_name
 }
 
-output "runtime_state_prefix" {
+output "gcp_runtime_state_prefix" {
   description = "Suggested GCS state prefix for the future Lab 07 GCE runtime root."
   value       = local.gcp_state_prefix
 }

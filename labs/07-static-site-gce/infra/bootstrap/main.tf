@@ -184,7 +184,7 @@ resource "aws_iam_role_policy_attachment" "github_image_pull" {
   policy_arn = aws_iam_policy.github_image_pull.arn
 }
 
-resource "google_artifact_registry_repository" "mirror" {
+resource "google_artifact_registry_repository" "service" {
   project       = var.gcp_project_id
   location      = var.gcp_region
   repository_id = local.artifact_repository_id
@@ -209,6 +209,16 @@ resource "google_artifact_registry_repository" "mirror" {
 
     most_recent_versions {
       keep_count = var.artifact_registry_keep_count
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-untagged-images"
+    action = "DELETE"
+
+    condition {
+      tag_state  = "UNTAGGED"
+      older_than = var.artifact_registry_untagged_delete_older_than
     }
   }
 }
@@ -259,38 +269,62 @@ resource "google_project_iam_member" "apply" {
   member  = google_service_account.apply.member
 }
 
-resource "google_storage_bucket_iam_member" "plan_state" {
-  bucket = var.terraform_state_bucket_name
+resource "google_storage_bucket_iam_member" "plan_state_read" {
+  bucket = var.gcp_state_bucket_name
   role   = "roles/storage.objectViewer"
   member = google_service_account.plan.member
 }
 
-resource "google_storage_bucket_iam_member" "plan_state_lock" {
-  bucket = var.terraform_state_bucket_name
+resource "google_storage_bucket_iam_member" "plan_state_lock_bootstrap" {
+  bucket = var.gcp_state_bucket_name
   role   = "roles/storage.objectAdmin"
   member = google_service_account.plan.member
 
   condition {
-    title       = "TerraformStateLockFiles"
-    description = "Allow PR plans to create and delete Terraform GCS lock files for this stage only."
-    expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.terraform_state_bucket_name}/objects/${local.gcp_state_prefix}\") && resource.name.endsWith(\".tflock\")"
+    title       = "BootstrapStateLockFiles"
+    description = "Allow PR plans to create and delete Terraform GCS lock files for this bootstrap prefix only."
+    expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_bootstrap_prefix}\") && resource.name.endsWith(\".tflock\")"
   }
 }
 
-resource "google_storage_bucket_iam_member" "apply_state" {
-  bucket = var.terraform_state_bucket_name
+resource "google_storage_bucket_iam_member" "plan_state_lock_runtime" {
+  bucket = var.gcp_state_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = google_service_account.plan.member
+
+  condition {
+    title       = "RuntimeStateLockFiles"
+    description = "Allow PR plans to create and delete Terraform GCS lock files for this runtime state prefix."
+    expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_state_prefix}\") && resource.name.endsWith(\".tflock\")"
+  }
+}
+
+resource "google_storage_bucket_iam_member" "apply_state_runtime" {
+  bucket = var.gcp_state_bucket_name
   role   = "roles/storage.objectAdmin"
   member = google_service_account.apply.member
+
+  condition {
+    title       = "RuntimeStateAccess"
+    description = "Allow runtime apply to read/write and lock Terraform state objects for the runtime state prefix only."
+    expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_state_prefix}\")"
+  }
 }
 
-resource "google_service_account_iam_binding" "plan_wif" {
+resource "google_service_account_iam_member" "github_plan_wif_pull_request" {
   service_account_id = google_service_account.plan.name
   role               = "roles/iam.workloadIdentityUser"
-  members            = local.plan_wif_members
+  member             = local.plan_wif_members[0]
 }
 
-resource "google_service_account_iam_binding" "apply_wif" {
+resource "google_service_account_iam_member" "github_plan_wif_main" {
+  service_account_id = google_service_account.plan.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = local.plan_wif_members[1]
+}
+
+resource "google_service_account_iam_member" "github_apply_wif" {
   service_account_id = google_service_account.apply.name
   role               = "roles/iam.workloadIdentityUser"
-  members            = local.apply_wif_members
+  member             = local.apply_wif_members[0]
 }

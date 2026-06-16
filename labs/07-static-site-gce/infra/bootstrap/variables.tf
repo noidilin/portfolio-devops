@@ -36,8 +36,8 @@ variable "github_repository" {
   default     = "noidilin/portfolio-devops"
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_repository))
-    error_message = "github_repository must be in OWNER/REPO form."
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]+$", var.github_repository))
+    error_message = "github_repository must be OWNER/REPO where OWNER is 1-39 alphanumerics/hyphens and REPO uses alphanumerics, dots, underscores, or hyphens."
   }
 }
 
@@ -61,13 +61,13 @@ variable "github_wif_provider_name" {
   }
 }
 
-variable "terraform_state_bucket_name" {
+variable "gcp_state_bucket_name" {
   description = "Shared GCS Terraform state bucket name created by the shared GCP bootstrap."
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$", var.terraform_state_bucket_name))
-    error_message = "terraform_state_bucket_name must be a valid GCS bucket name."
+    condition     = can(regex("^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$", var.gcp_state_bucket_name))
+    error_message = "gcp_state_bucket_name must be a valid GCS bucket name."
   }
 }
 
@@ -75,18 +75,33 @@ variable "environment" {
   description = "Deployment environment name."
   type        = string
   default     = "stage"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,29}$", var.environment))
+    error_message = "environment must be 1-30 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
+  }
 }
 
 variable "project_name" {
   description = "Project/lab name used in resource names and tags."
   type        = string
   default     = "static-site-gce"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,29}$", var.project_name))
+    error_message = "project_name must be 1-30 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
+  }
 }
 
 variable "service_name" {
   description = "Container service/image artifact name."
   type        = string
   default     = "cidr-calculator"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,29}$", var.service_name))
+    error_message = "service_name must be 1-30 characters, lowercase, start with a letter, and contain only letters, digits, and hyphens."
+  }
 }
 
 variable "github_environment" {
@@ -110,6 +125,12 @@ variable "artifact_registry_delete_older_than" {
   description = "Age threshold for deleting older SHA-tagged Artifact Registry images."
   type        = string
   default     = "2592000s"
+}
+
+variable "artifact_registry_untagged_delete_older_than" {
+  description = "Age threshold for deleting untagged Artifact Registry images."
+  type        = string
+  default     = "86400s"
 }
 
 variable "aws_tags" {
