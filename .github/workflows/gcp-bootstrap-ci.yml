@@ -11,7 +11,7 @@ on:
       - ".github/workflows/gcp-runtime-ci.yml"
       - ".github/workflows/gcp-runtime-deploy.yml"
       - ".github/workflows/gcp-runtime-destroy.yml"
-      - "scripts/validate-gcp-workflow-consumers.sh"
+      - ".github/scripts/validate-gcp-workflow-consumers.sh"
   workflow_dispatch:
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate canonical workflow consumers
-        run: scripts/validate-gcp-workflow-consumers.sh
+        run: .github/scripts/validate-gcp-workflow-consumers.sh
 
   shared-bootstrap-static-checks:
     name: Shared bootstrap fmt/validate/test

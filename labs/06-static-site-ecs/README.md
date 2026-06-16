@@ -147,7 +147,7 @@ This lab has GitHub Actions support for PR checks, main/manual approved deploys,
 - lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
 - runtime: `infra/stage/` (ECS Express service only)
 
-Create GitHub Environment `lab-06-stage` before using deploy/destroy, and configure its required reviewers in the GitHub repository settings. The PR-check CI workflow runs app lint/test/build, a Docker local smoke test from `apps/cidr-calculator`, Terraform validation, `terraform test`, and a Terraform plan; it does not push images to ECR. The deploy workflow reruns the checks, pushes or reuses this lab's ECR image as `sha-${GITHUB_SHA}`, then applies only Runtime Stage resources in `infra/stage` with that image tag after environment approval. Dispatch `Lab container deploy` from `main`, choose `06-static-site-ecs`, and approve the environment gate. Shared app changes on `main` select the approved deployment paths for both Lab 05 and Lab 06. Dispatch `Lab container destroy` to destroy only the ECS runtime. Destroy removes only Runtime Stage resources; Bootstrap resources survive, including the ECR repository and image history, GitHub OIDC cloud identities/roles, ECS runtime IAM roles, permissions boundaries, and Terraform state foundations.
+Create GitHub Environment `lab-06-stage` before using deploy/destroy, and configure its required reviewers in the GitHub repository settings. The PR-check CI workflow runs app lint/test/build, a Docker local smoke test from `apps/cidr-calculator`, Terraform validation, `terraform test`, and a Terraform plan; it does not push images to ECR. The deploy workflow reruns the checks, pushes or reuses this lab's ECR image as `sha-${GITHUB_SHA}`, then applies only Runtime Stage resources in `infra/stage` with that image tag after environment approval. Dispatch `aws-runtime-deploy` from `main`, choose `06-static-site-ecs`, and approve the environment gate. Shared app changes on `main` select the approved deployment paths for both Lab 05 and Lab 06. Dispatch `aws-runtime-destroy` to destroy only the ECS runtime. Destroy removes only Runtime Stage resources; Bootstrap resources survive, including the ECR repository and image history, GitHub OIDC cloud identities/roles, ECS runtime IAM roles, permissions boundaries, and Terraform state foundations.
 
 ## Deploy a pushed image tag
 
@@ -191,7 +191,7 @@ terraform output docker_build_tag_push_commands
 
 ### Step 4: request Approved Deploy for the ECS Express service
 
-The normal deploy path is the `ec2-ecs-deploy` GitHub Actions workflow. Dispatch `Lab container deploy` from `main`, choose `06-static-site-ecs`, and approve the `lab-06-stage` GitHub Environment gate. The workflow passes the immutable `sha-${GITHUB_SHA}` image tag into Terraform and applies only the Runtime Stage.
+The normal deploy path is the `aws-runtime-deploy` GitHub Actions workflow. Dispatch `aws-runtime-deploy` from `main`, choose `06-static-site-ecs`, and approve the `lab-06-stage` GitHub Environment gate. The workflow passes the immutable `sha-${GITHUB_SHA}` image tag into Terraform and applies only the Runtime Stage.
 
 For plan-only local inspection, set `image_tag` in `infra/stage/stage.auto.tfvars` and run `terraform plan`; do not use local apply as the learner provisioning path.
 
@@ -229,6 +229,6 @@ CloudWatch logs receive the Nginx container stdout/stderr stream.
 
 ## Teardown
 
-Use the `ec2-ecs-destroy` GitHub Actions workflow for approved runtime teardown. Dispatch `Lab container destroy`, choose `06-static-site-ecs`, and approve the `lab-06-stage` GitHub Environment gate.
+Use the `aws-runtime-destroy` GitHub Actions workflow for approved runtime teardown. Dispatch `aws-runtime-destroy`, choose `06-static-site-ecs`, and approve the `lab-06-stage` GitHub Environment gate.
 
 Destroy removes only Runtime Stage resources such as the ECS Express service, cluster, CloudWatch log group, and runtime IAM roles. Bootstrap resources survive runtime destroy, including the ECR repository and image history, GitHub OIDC cloud identities/roles, permissions boundaries, and Terraform state foundations.

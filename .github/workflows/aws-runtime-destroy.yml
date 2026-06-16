@@ -1,4 +1,4 @@
-name: ec2-ecs-destroy
+name: aws-runtime-destroy
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ec2-ecs-destroy-${{ inputs.lab }}
+  group: aws-runtime-destroy-${{ inputs.lab }}
   cancel-in-progress: false
 
 jobs:
