@@ -76,12 +76,20 @@ resource "aws_iam_policy" "github_plan" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowTerraformStateReadAndLock"
+        Sid    = "AllowTerraformStateRead"
         Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+        Action = ["s3:GetObject"]
         Resource = [
-          "arn:aws:s3:::${local.state_bucket}/${local.state_prefix}*",
-          "arn:aws:s3:::${local.state_bucket}/${local.state_prefix}*.tflock"
+          "arn:aws:s3:::${local.state_bucket}/${local.stage_state_key}",
+          "arn:aws:s3:::${local.state_bucket}/${local.stage_state_lock_key}"
+        ]
+      },
+      {
+        Sid    = "AllowTerraformStateLockMutate"
+        Effect = "Allow"
+        Action = ["s3:PutObject", "s3:DeleteObject"]
+        Resource = [
+          "arn:aws:s3:::${local.state_bucket}/${local.stage_state_lock_key}"
         ]
       },
       {
@@ -90,7 +98,7 @@ resource "aws_iam_policy" "github_plan" {
         Action   = ["s3:ListBucket"]
         Resource = "arn:aws:s3:::${local.state_bucket}"
         Condition = {
-          StringLike = { "s3:prefix" = ["${local.state_prefix}*"] }
+          StringLike = { "s3:prefix" = ["${local.stage_state_prefix}*"] }
         }
       },
       {
@@ -165,10 +173,13 @@ resource "aws_iam_policy" "github_apply" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "AllowTerraformStateMutation"
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-        Resource = "arn:aws:s3:::${local.state_bucket}/${local.state_prefix}*"
+        Sid    = "AllowTerraformStateMutation"
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+        Resource = [
+          "arn:aws:s3:::${local.state_bucket}/${local.stage_state_key}",
+          "arn:aws:s3:::${local.state_bucket}/${local.stage_state_lock_key}"
+        ]
       },
       {
         Sid      = "AllowTerraformStateList"
@@ -176,7 +187,7 @@ resource "aws_iam_policy" "github_apply" {
         Action   = "s3:ListBucket"
         Resource = "arn:aws:s3:::${local.state_bucket}"
         Condition = {
-          StringLike = { "s3:prefix" = ["${local.state_prefix}*"] }
+          StringLike = { "s3:prefix" = ["${local.stage_state_prefix}*"] }
         }
       },
       {
