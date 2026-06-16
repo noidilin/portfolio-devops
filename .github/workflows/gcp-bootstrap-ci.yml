@@ -117,24 +117,24 @@ jobs:
 
           if [ "${{ matrix.lab.id }}" = "07-static-site-gce" ]; then
             cat > ci.auto.tfvars <<EOF_TFVARS
-          aws_region                  = "${AWS_REGION}"
-          gcp_project_id              = "${GCP_PROJECT_ID}"
-          gcp_project_number          = "${GCP_PROJECT_NUMBER}"
-          gcp_region                  = "${GCP_REGION}"
-          gcp_state_bucket_name       = "${GCP_STATE_BUCKET}"
-          github_repository           = "${GITHUB_REPOSITORY_SLUG}"
-          github_wif_pool_name        = "${GCP_WIF_POOL}"
-          github_wif_provider_name    = "${GCP_WIF_PROVIDER}"
+          aws_region               = "${AWS_REGION}"
+          gcp_project_id           = "${GCP_PROJECT_ID}"
+          gcp_project_number       = "${GCP_PROJECT_NUMBER}"
+          gcp_region               = "${GCP_REGION}"
+          gcp_state_bucket_name    = "${GCP_STATE_BUCKET}"
+          github_repository        = "${GITHUB_REPOSITORY_SLUG}"
+          github_wif_pool_name     = "${GCP_WIF_POOL}"
+          github_wif_provider_name = "${GCP_WIF_PROVIDER}"
           EOF_TFVARS
           else
             cat > ci.auto.tfvars <<EOF_TFVARS
-          aws_region                  = "${AWS_REGION}"
-          gcp_project_id              = "${GCP_PROJECT_ID}"
-          gcp_region                  = "${GCP_REGION}"
-          gcp_state_bucket_name       = "${GCP_STATE_BUCKET}"
-          github_repository           = "${GITHUB_REPOSITORY_SLUG}"
-          github_wif_pool_name        = "${GCP_WIF_POOL}"
-          github_wif_provider_name    = "${GCP_WIF_PROVIDER}"
+          aws_region               = "${AWS_REGION}"
+          gcp_project_id           = "${GCP_PROJECT_ID}"
+          gcp_region               = "${GCP_REGION}"
+          gcp_state_bucket_name    = "${GCP_STATE_BUCKET}"
+          github_repository        = "${GITHUB_REPOSITORY_SLUG}"
+          github_wif_pool_name     = "${GCP_WIF_POOL}"
+          github_wif_provider_name = "${GCP_WIF_PROVIDER}"
           EOF_TFVARS
           fi
 
