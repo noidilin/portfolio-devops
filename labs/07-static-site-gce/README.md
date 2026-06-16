@@ -182,7 +182,7 @@ $(terraform output -raw serial_port_logs_command)
 
 Create GitHub Environment `lab-07-stage` before using deploy/destroy, and configure its required reviewers in the GitHub repository settings.
 
-Use `.github/workflows/gcp-gce-deploy.yml` as the normal provisioning path. The workflow runs app checks, Docker smoke tests, Terraform validation, `terraform test`, and a pre-approval plan. After `lab-07-stage` approval, it mirrors the immutable image tag into Artifact Registry and applies only Runtime Stage resources in `labs/07-static-site-gce/infra/stage`.
+Use `.github/workflows/gcp-runtime-deploy.yml` with `lab=07-static-site-gce` as the normal provisioning path. The workflow runs app checks, Docker smoke tests, Terraform validation, `terraform test`, and a pre-approval plan. After `lab-07-stage` approval, it mirrors the immutable image tag into Artifact Registry and applies only Runtime Stage resources in `labs/07-static-site-gce/infra/stage`.
 
 Use `.github/workflows/gcp-runtime-destroy.yml` for gated runtime teardown:
 

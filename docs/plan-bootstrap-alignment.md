@@ -413,7 +413,7 @@ Do not grant apply identities broad objectAdmin over the whole shared state buck
    - `devops-cloudrun-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com`
    - `devops-cloudrun-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com`
 3. Confirm `.github/workflows/gcp-runtime-ci.yml` uses updated Lab 08 plan service account.
-4. Confirm `.github/workflows/gcp-cloud-run-deploy.yml` uses updated Lab 08 plan/apply service accounts.
+4. Confirm `.github/workflows/gcp-runtime-deploy.yml` uses updated Lab 08 plan/apply service accounts.
 5. Keep non-secret account/project constants hard-coded in YAML.
 6. Preserve live bootstrap plans in PR, with the operational assumption that the human first applies bootstrap infra before expecting those live plans to pass.
 
