@@ -3,7 +3,7 @@ gcp_project_id        = "example-devops-labs"
 gcp_state_bucket_name = "example-devops-labs-tf-state"
 github_repository     = "OWNER/REPO"
 
-# Use full resource names from infra/gcp-bootstrap/shared-project outputs.
+# Use full resource names from infra/bootstrap/gcp outputs.
 gcp_region               = "asia-northeast1"
 github_wif_pool_name     = "projects/123456789012/locations/global/workloadIdentityPools/github-actions"
 github_wif_provider_name = "projects/123456789012/locations/global/workloadIdentityPools/github-actions/providers/github"

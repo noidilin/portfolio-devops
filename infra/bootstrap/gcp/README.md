@@ -55,7 +55,7 @@ This root intentionally has no remote `backend` block. Its local state is the bo
 Configure account/project-specific inputs locally:
 
 ```sh
-cd infra/gcp-bootstrap/shared-project
+cd infra/bootstrap/gcp
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars
 ```
@@ -69,16 +69,16 @@ For non-USD billing accounts, set `budget_currency` to the billing account curre
 Static checks:
 
 ```sh
-terraform -chdir=infra/gcp-bootstrap/shared-project fmt -check -recursive
-terraform -chdir=infra/gcp-bootstrap/shared-project init -backend=false
-terraform -chdir=infra/gcp-bootstrap/shared-project validate
-terraform -chdir=infra/gcp-bootstrap/shared-project test
+terraform -chdir=infra/bootstrap/gcp fmt -check -recursive
+terraform -chdir=infra/bootstrap/gcp init -backend=false
+terraform -chdir=infra/bootstrap/gcp validate
+terraform -chdir=infra/bootstrap/gcp test
 ```
 
 Local first apply with the operator's ADC credentials:
 
 ```sh
-cd infra/gcp-bootstrap/shared-project
+cd infra/bootstrap/gcp
 terraform init
 terraform fmt -recursive
 terraform validate

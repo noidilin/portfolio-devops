@@ -6,7 +6,7 @@ The lab consumes an image that has already been built from `../../apps/cidr-calc
 
 ## Bootstrap prerequisites
 
-1. Apply `infra/gcp-bootstrap/shared-project` to create the shared GCS Terraform state bucket, required APIs, and GitHub Workload Identity Federation foundations.
+1. Apply `infra/bootstrap/gcp` to create the shared GCS Terraform state bucket, required APIs, and GitHub Workload Identity Federation foundations.
 2. Apply `labs/08-static-site-cloud-run/infra/bootstrap` to create the durable Lab 08 ECR repository, Artifact Registry mirror, CI identities, and runtime state prefix.
 3. Use the approved deploy workflow to build/push the canonical ECR image, mirror the exact immutable tag into Artifact Registry, and apply this runtime root.
 

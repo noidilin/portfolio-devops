@@ -1,5 +1,5 @@
 variable "gcp_project_id" {
-  description = "Existing GCP project ID prepared by infra/gcp-bootstrap/shared-project."
+  description = "Existing GCP project ID prepared by infra/bootstrap/gcp."
   type        = string
 
   validation {

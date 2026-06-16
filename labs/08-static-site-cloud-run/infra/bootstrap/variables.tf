@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 
 variable "gcp_project_id" {
-  description = "Existing GCP project ID prepared by infra/gcp-bootstrap/shared-project."
+  description = "Existing GCP project ID prepared by infra/bootstrap/gcp."
   type        = string
 
   validation {
@@ -91,7 +91,7 @@ variable "github_wif_provider_name" {
 }
 
 variable "gcp_state_bucket_name" {
-  description = "Shared GCS Terraform state bucket name from infra/gcp-bootstrap/shared-project."
+  description = "Shared GCS Terraform state bucket name from infra/bootstrap/gcp."
   type        = string
 
   validation {

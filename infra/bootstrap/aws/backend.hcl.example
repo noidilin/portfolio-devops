@@ -2,7 +2,7 @@
 # Do not commit backend.hcl; it is intentionally account-specific.
 
 bucket       = "example-devops-labs-tf-state"
-key          = "infra/account-bootstrap/github-oidc-provider/terraform.tfstate"
+key          = "infra/bootstrap/aws/terraform.tfstate"
 region       = "ap-northeast-1"
 use_lockfile = true
 encrypt      = true

@@ -144,7 +144,7 @@ terraform output
 
 This lab has GitHub Actions support for PR checks, manual approved deploys, and manual approved destroys. Bootstrap resources live outside the disposable runtime:
 
-- shared OIDC provider: `infra/account-bootstrap/github-oidc-provider/`
+- shared OIDC provider: `infra/bootstrap/aws/`
 - lab bootstrap: `infra/bootstrap/` (ECR plus GitHub OIDC roles)
 - runtime: `infra/stage/` (EC2 host only)
 

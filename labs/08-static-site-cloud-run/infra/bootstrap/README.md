@@ -8,7 +8,7 @@ Bootstrap owns the durable dual-cloud contract for Lab 08: AWS image roles and E
 
 ## Prerequisites
 
-1. Apply `infra/gcp-bootstrap/shared-project` first.
+1. Apply `infra/bootstrap/gcp` first.
 2. Use its `state_bucket_name`, `github_wif_pool_name`, and `github_wif_provider_name` outputs here.
 3. Ensure AWS sandbox prerequisites exist, including the shared GitHub OIDC provider and permissions boundary policy documented under `docs/aws-sandbox/`.
 4. Run the first bootstrap apply as a human/bootstrap operator with permission to create Artifact Registry repositories, custom roles, service accounts, project IAM members, service-account IAM members, and state-bucket IAM members. The root intentionally does not create an unused bootstrap-admin custom role.

@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and replace placeholders as needed.
+# Do not commit terraform.tfvars; it is intentionally account-specific.
+
+aws_region = "ap-northeast-1"
+
+tags = {
+  Project     = "devops-lab-cicd"
+  Environment = "bootstrap"
+  ManagedBy   = "terraform"
+  Service     = "github-oidc"
+}

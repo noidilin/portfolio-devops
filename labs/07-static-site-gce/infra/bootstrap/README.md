@@ -21,7 +21,7 @@ This root owns the durable CI/CD bootstrap contract for the lab:
 
 This lab requires:
 
-- `infra/gcp-bootstrap/shared-project` already applied (or planned and ready to apply).
+- `infra/bootstrap/gcp` already applied (or planned and ready to apply).
 - `aws` account-level GitHub OIDC provider and permissions boundaries managed outside this root.
 - Shared GCP bootstrap outputs: `project_id`, `project_number`, `state_bucket_name`, `github_wif_pool_name`, `github_wif_provider_name`. Pass `state_bucket_name` as this root's `gcp_state_bucket_name`.
 - A GitHub Environment named `lab-07-stage` for apply protections.
