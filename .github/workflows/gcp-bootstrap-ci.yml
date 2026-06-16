@@ -108,7 +108,7 @@ jobs:
           gcp_project_id              = "${GCP_PROJECT_ID}"
           gcp_project_number          = "${GCP_PROJECT_NUMBER}"
           gcp_region                  = "${GCP_REGION}"
-          terraform_state_bucket_name = "${GCP_STATE_BUCKET}"
+          gcp_state_bucket_name    = "${GCP_STATE_BUCKET}"
           github_repository           = "${GITHUB_REPOSITORY_SLUG}"
           github_wif_pool_name        = "projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GCP_WIF_POOL_ID}"
           github_wif_provider_name    = "${GCP_WIF_PROVIDER}"
