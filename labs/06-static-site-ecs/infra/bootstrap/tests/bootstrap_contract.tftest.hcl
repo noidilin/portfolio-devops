@@ -175,12 +175,56 @@ run "lab06_bootstrap_contract" {
   }
 
   assert {
-    condition     = strcontains(aws_iam_policy.github_plan.policy, "${local.state_bucket}/${local.state_prefix}*") && strcontains(aws_iam_policy.github_apply.policy, "${local.state_bucket}/${local.state_prefix}*")
-    error_message = "Bootstrap IAM policies should include access to the Lab 06 runtime Terraform state prefix."
+    condition     = output.ecr_repository_name == "devops-static-site-ecs-stage-cidr-calculator" && output.ecr_repository_url == aws_ecr_repository.service.repository_url && output.github_plan_role_arn == aws_iam_role.github_plan.arn && output.github_image_push_role_arn == aws_iam_role.github_image_push.arn && output.github_apply_role_arn == aws_iam_role.github_apply.arn
+    error_message = "Bootstrap outputs should expose the ECR repository and GitHub role ARNs needed by CI and deploy workflows."
+  }
+}
+
+run "lab06_bootstrap_state_scope_contract" {
+  command = plan
+
+  variables {
+    github_repository = "OWNER/REPO"
   }
 
   assert {
-    condition     = output.ecr_repository_name == "devops-static-site-ecs-stage-cidr-calculator" && output.ecr_repository_url == aws_ecr_repository.service.repository_url && output.github_plan_role_arn == aws_iam_role.github_plan.arn && output.github_image_push_role_arn == aws_iam_role.github_image_push.arn && output.github_apply_role_arn == aws_iam_role.github_apply.arn
-    error_message = "Bootstrap outputs should expose the ECR repository and GitHub role ARNs needed by CI and deploy workflows."
+    condition     = strcontains(aws_iam_policy.github_plan.policy, "infra/stage/terraform.tfstate")
+    error_message = "Plan role S3 policy must reference the canonical runtime stage state object."
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.github_plan.policy, "infra/stage/terraform.tfstate.tflock")
+    error_message = "Plan role S3 policy must reference the runtime stage lock object so plans can acquire and release locks."
+  }
+
+  assert {
+    condition     = !strcontains(aws_iam_policy.github_plan.policy, "infra/bootstrap")
+    error_message = "Plan role must not reach bootstrap state; scope S3 access to runtime stage state only."
+  }
+
+  assert {
+    condition = alltrue([
+      for r in flatten([
+        for s in jsondecode(aws_iam_policy.github_plan.policy).Statement :
+        tolist(s.Resource)
+        if contains(tolist(s.Action), "s3:PutObject") || contains(tolist(s.Action), "s3:DeleteObject")
+      ]) : endswith(r, ".tflock")
+    ])
+    error_message = "Plan role may only mutate the .tflock lock object, never the stage state object itself."
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.github_apply.policy, "infra/stage/terraform.tfstate") && strcontains(aws_iam_policy.github_apply.policy, "infra/stage/terraform.tfstate.tflock")
+    error_message = "Apply role S3 policy must be scoped to the runtime stage state object and its lock."
+  }
+
+  assert {
+    condition     = !strcontains(aws_iam_policy.github_apply.policy, "infra/bootstrap")
+    error_message = "Apply role must not reach bootstrap state; scope S3 access to runtime stage state only."
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.github_plan.policy, "infra/stage/") && strcontains(aws_iam_policy.github_apply.policy, "infra/stage/")
+    error_message = "S3 ListBucket prefix conditions must be scoped to the runtime stage prefix."
   }
 }

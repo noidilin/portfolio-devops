@@ -4,7 +4,11 @@ locals {
   github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
   permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/lab-gitops-oidc-apply-permissions-boundary"
   state_bucket             = "noidilin-tf-state"
-  state_prefix             = "labs/06-static-site-ecs/"
+  # Runtime CI roles are scoped to the disposable stage state only, never the
+  # human/operator-managed bootstrap state. Keys mirror infra/stage/backend.hcl.example.
+  stage_state_prefix   = "labs/06-static-site-ecs/infra/stage/"
+  stage_state_key      = "${local.stage_state_prefix}terraform.tfstate"
+  stage_state_lock_key = "${local.stage_state_key}.tflock"
 
   common_tags = merge(var.tags, {
     Project     = var.project_name
