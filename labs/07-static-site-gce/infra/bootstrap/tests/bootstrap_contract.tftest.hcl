@@ -191,8 +191,8 @@ run "lab07_bootstrap_state_scope_contract" {
   }
 
   assert {
-    condition     = google_storage_bucket_iam_member.apply_state_runtime.role == "roles/storage.objectAdmin" && length(google_storage_bucket_iam_member.apply_state_runtime.condition) == 1 && strcontains(tolist(google_storage_bucket_iam_member.apply_state_runtime.condition)[0].expression, "gcp/runtime/labs/07-static-site-gce/stage/") && !strcontains(tolist(google_storage_bucket_iam_member.apply_state_runtime.condition)[0].expression, ".tflock")
-    error_message = "Apply service account must get objectAdmin only for the runtime state prefix, covering state and lock, never the bootstrap prefix."
+    condition     = google_storage_bucket_iam_member.apply_state_read.role == "roles/storage.objectViewer" && length(google_storage_bucket_iam_member.apply_state_read.condition) == 0 && google_storage_bucket_iam_member.apply_state_runtime.role == "roles/storage.objectAdmin" && length(google_storage_bucket_iam_member.apply_state_runtime.condition) == 1 && strcontains(tolist(google_storage_bucket_iam_member.apply_state_runtime.condition)[0].expression, "gcp/runtime/labs/07-static-site-gce/stage/") && !strcontains(tolist(google_storage_bucket_iam_member.apply_state_runtime.condition)[0].expression, ".tflock")
+    error_message = "Apply service account must get bucket-level read/list for Terraform workspace discovery and objectAdmin only for runtime state mutations."
   }
 
   assert {

@@ -16,6 +16,11 @@ run "cloud_run_runtime_contract" {
   }
 
   assert {
+    condition     = output.runtime_service_account_email == "devops-static-site-cloud-run-s@example-devops-labs.iam.gserviceaccount.com"
+    error_message = "Stage must use the runtime service account pre-created by the bootstrap root."
+  }
+
+  assert {
     condition     = output.runtime_scaling.min_instance_count == 0 && output.runtime_scaling.max_instance_count == 2
     error_message = "Cloud Run runtime must scale to zero with a max instance guardrail of two."
   }

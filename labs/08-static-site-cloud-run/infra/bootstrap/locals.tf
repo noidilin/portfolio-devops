@@ -1,17 +1,18 @@
 locals {
-  lab_id                   = "08-static-site-cloud-run"
-  name_prefix              = "devops-${var.project_name}-${var.environment}"
-  ecr_repository_name      = "${local.name_prefix}-${var.service_name}"
-  artifact_repository_id   = replace(local.ecr_repository_name, "_", "-")
-  github_repository_owner  = split("/", var.github_repository)[0]
-  aws_oidc_provider_arn    = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
-  permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/lab-gitops-oidc-apply-permissions-boundary"
-  gcp_bootstrap_prefix     = "gcp/bootstrap/labs/${local.lab_id}/"
-  gcp_state_prefix         = "gcp/runtime/labs/${local.lab_id}/${var.environment}/"
-  plan_service_account_id  = "devops-cloudrun-${var.environment}-plan"
-  apply_service_account_id = "devops-cloudrun-${var.environment}-apply"
-  plan_custom_role_id      = "lab08CloudRunPlan"
-  apply_custom_role_id     = "lab08CloudRunApply"
+  lab_id                     = "08-static-site-cloud-run"
+  name_prefix                = "devops-${var.project_name}-${var.environment}"
+  ecr_repository_name        = "${local.name_prefix}-${var.service_name}"
+  artifact_repository_id     = replace(local.ecr_repository_name, "_", "-")
+  github_repository_owner    = split("/", var.github_repository)[0]
+  aws_oidc_provider_arn      = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+  permissions_boundary_arn   = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/lab-gitops-oidc-apply-permissions-boundary"
+  gcp_bootstrap_prefix       = "gcp/bootstrap/labs/${local.lab_id}/"
+  gcp_state_prefix           = "gcp/runtime/labs/${local.lab_id}/${var.environment}/"
+  plan_service_account_id    = "devops-cloudrun-${var.environment}-plan"
+  apply_service_account_id   = "devops-cloudrun-${var.environment}-apply"
+  runtime_service_account_id = substr(replace("${local.name_prefix}-runtime", "_", "-"), 0, 30)
+  plan_custom_role_id        = "lab08CloudRunPlan"
+  apply_custom_role_id       = "lab08CloudRunApply"
 
   plan_wif_members = [
     "principal://iam.googleapis.com/${var.github_wif_pool_name}/subject/repo:${var.github_repository}:pull_request",

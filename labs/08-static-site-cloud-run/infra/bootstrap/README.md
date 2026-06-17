@@ -56,9 +56,9 @@ terraform output
 - ECR repository in `ap-northeast-1` using immutable tags, scan-on-push, AES256 encryption, and hard-coded lab lifecycle defaults.
 - Artifact Registry Docker repository in `asia-northeast1` with cleanup policies to keep recent image versions, delete old `sha-*` tags, and delete untagged images.
 - Canonically named GCP plan/apply service accounts: `devops-cloudrun-<environment>-plan` and `devops-cloudrun-<environment>-apply`.
-- Project custom roles for pragmatic Cloud Run planning/apply permissions without broad Editor-like grants.
+- Project custom roles for pragmatic Cloud Run planning/apply permissions without broad Editor-like grants; bootstrap pre-creates the dedicated Cloud Run runtime service account so runtime deploys only need `iam.serviceAccounts.actAs`.
 - Additive GitHub WIF impersonation members: plan allows explicit pull-request and main subjects; apply allows only the protected `lab-08-stage` GitHub Environment subject.
-- GCS state IAM: plan can read state and mutate only `.tflock` files under bootstrap/runtime prefixes; apply can mutate objects only under the runtime prefix.
+- GCS state IAM: plan can read state and mutate only `.tflock` files under bootstrap/runtime prefixes; apply can read/list state for Terraform GCS backend workspace discovery and mutate objects only under the runtime prefix.
 
 ## CI/CD consumers
 
@@ -66,7 +66,7 @@ CI/CD consumes these outputs and constants:
 
 - `github_plan_role_arn`, `github_image_push_role_arn`, and `github_image_pull_role_arn` for AWS OIDC/ECR access.
 - `github_wif_provider_name`, `gcp_plan_service_account_email`, and `gcp_apply_service_account_email` for GCP WIF authentication.
-- `artifact_registry_image_base`, `gcp_state_bucket_name`, and `gcp_runtime_state_prefix` for image mirroring and runtime Terraform.
+- `artifact_registry_image_base`, `gcp_runtime_service_account_email`, `gcp_state_bucket_name`, and `gcp_runtime_state_prefix` for image mirroring and runtime Terraform.
 
 Affected workflows use `devops-cloudrun-stage-plan@portfolio-devops-labs.iam.gserviceaccount.com` for PR/main planning and `devops-cloudrun-stage-apply@portfolio-devops-labs.iam.gserviceaccount.com` for protected deploy/destroy jobs.
 

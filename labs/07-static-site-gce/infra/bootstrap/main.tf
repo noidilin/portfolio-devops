@@ -159,6 +159,8 @@ resource "aws_iam_policy" "github_image_pull" {
         Effect = "Allow"
         Action = [
           "ecr:BatchGetImage",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
           "ecr:GetDownloadUrlForLayer"
         ]
         Resource = aws_ecr_repository.service.arn
@@ -297,6 +299,12 @@ resource "google_storage_bucket_iam_member" "plan_state_lock_runtime" {
     description = "Allow PR plans to create and delete Terraform GCS lock files for this runtime state prefix."
     expression  = "resource.type == \"storage.googleapis.com/Object\" && resource.name.startsWith(\"projects/_/buckets/${var.gcp_state_bucket_name}/objects/${local.gcp_state_prefix}\") && resource.name.endsWith(\".tflock\")"
   }
+}
+
+resource "google_storage_bucket_iam_member" "apply_state_read" {
+  bucket = var.gcp_state_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = google_service_account.apply.member
 }
 
 resource "google_storage_bucket_iam_member" "apply_state_runtime" {

@@ -15,7 +15,7 @@ output "container_image" {
 
 output "runtime_service_account_email" {
   description = "Dedicated runtime service account email used by the Cloud Run revision."
-  value       = google_service_account.runtime.email
+  value       = var.runtime_service_account_email
 }
 
 output "min_instance_count" {

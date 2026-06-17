@@ -124,8 +124,8 @@ run "lab08_bootstrap_contract" {
   }
 
   assert {
-    condition     = google_service_account.plan.account_id == "devops-cloudrun-stage-plan" && google_service_account.apply.account_id == "devops-cloudrun-stage-apply"
-    error_message = "Lab 08 must have separate canonical plan and apply service accounts."
+    condition     = google_service_account.plan.account_id == "devops-cloudrun-stage-plan" && google_service_account.apply.account_id == "devops-cloudrun-stage-apply" && google_service_account.runtime.account_id == "devops-static-site-cloud-run-s"
+    error_message = "Lab 08 must have separate canonical plan/apply service accounts and a pre-created runtime service account."
   }
 
   assert {
@@ -139,8 +139,8 @@ run "lab08_bootstrap_contract" {
   }
 
   assert {
-    condition     = !contains(google_project_iam_custom_role.apply.permissions, "iam.roles.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.setIamPolicy") && !contains(google_project_iam_custom_role.apply.permissions, "resourcemanager.projects.setIamPolicy")
-    error_message = "The durable Lab 08 apply role must not retain project/IAM bootstrap-admin permissions."
+    condition     = !contains(google_project_iam_custom_role.apply.permissions, "iam.roles.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.create") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.delete") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.update") && !contains(google_project_iam_custom_role.apply.permissions, "iam.serviceAccounts.setIamPolicy") && !contains(google_project_iam_custom_role.apply.permissions, "resourcemanager.projects.setIamPolicy")
+    error_message = "The durable Lab 08 apply role must not retain project/IAM bootstrap-admin or service-account lifecycle permissions."
   }
 
   assert {
@@ -154,8 +154,8 @@ run "lab08_bootstrap_contract" {
   }
 
   assert {
-    condition     = google_storage_bucket_iam_member.plan_state_read.role == "roles/storage.objectViewer" && length(google_storage_bucket_iam_member.plan_state_read.condition) == 0 && strcontains(google_storage_bucket_iam_member.plan_state_lock_bootstrap.condition[0].expression, "gcp/bootstrap/labs/08-static-site-cloud-run/") && strcontains(google_storage_bucket_iam_member.plan_state_lock_runtime.condition[0].expression, "gcp/runtime/labs/08-static-site-cloud-run/stage/") && strcontains(google_storage_bucket_iam_member.plan_state_lock_runtime.condition[0].expression, ".tflock") && strcontains(google_storage_bucket_iam_member.apply_state_runtime.condition[0].expression, "gcp/runtime/labs/08-static-site-cloud-run/stage/") && !contains(google_project_iam_custom_role.plan.permissions, "storage.objects.get") && !contains(google_project_iam_custom_role.plan.permissions, "storage.objects.list") && !contains(google_project_iam_custom_role.plan.permissions, "storage.objects.update") && !contains(google_project_iam_custom_role.apply.permissions, "storage.objects.update")
-    error_message = "GCP state IAM must allow bucket-level read-only plan state access, lock-only bootstrap/runtime mutations, and apply runtime-only state access."
+    condition     = google_storage_bucket_iam_member.plan_state_read.role == "roles/storage.objectViewer" && length(google_storage_bucket_iam_member.plan_state_read.condition) == 0 && google_storage_bucket_iam_member.apply_state_read.role == "roles/storage.objectViewer" && length(google_storage_bucket_iam_member.apply_state_read.condition) == 0 && strcontains(google_storage_bucket_iam_member.plan_state_lock_bootstrap.condition[0].expression, "gcp/bootstrap/labs/08-static-site-cloud-run/") && strcontains(google_storage_bucket_iam_member.plan_state_lock_runtime.condition[0].expression, "gcp/runtime/labs/08-static-site-cloud-run/stage/") && strcontains(google_storage_bucket_iam_member.plan_state_lock_runtime.condition[0].expression, ".tflock") && strcontains(google_storage_bucket_iam_member.apply_state_runtime.condition[0].expression, "gcp/runtime/labs/08-static-site-cloud-run/stage/") && !contains(google_project_iam_custom_role.plan.permissions, "storage.objects.get") && !contains(google_project_iam_custom_role.plan.permissions, "storage.objects.list") && !contains(google_project_iam_custom_role.plan.permissions, "storage.objects.update") && !contains(google_project_iam_custom_role.apply.permissions, "storage.objects.update")
+    error_message = "GCP state IAM must allow bucket-level read/list for plans and Terraform apply workspace discovery, lock-only plan mutations, and apply runtime-only state mutations."
   }
 
   assert {

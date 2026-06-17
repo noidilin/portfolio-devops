@@ -97,6 +97,13 @@ resource "google_service_account" "apply" {
   description  = "Approved identity for Lab 08 Cloud Run bootstrap and runtime applies/destroys."
 }
 
+resource "google_service_account" "runtime" {
+  project      = var.gcp_project_id
+  account_id   = local.runtime_service_account_id
+  display_name = "${local.name_prefix} Cloud Run runtime"
+  description  = "Dedicated runtime identity for the Lab 08 Cloud Run static-site container."
+}
+
 resource "google_project_iam_custom_role" "plan" {
   project     = var.gcp_project_id
   role_id     = local.plan_custom_role_id
@@ -210,6 +217,12 @@ resource "google_project_iam_member" "apply" {
   project = var.gcp_project_id
   role    = google_project_iam_custom_role.apply.id
   member  = google_service_account.apply.member
+}
+
+resource "google_storage_bucket_iam_member" "apply_state_read" {
+  bucket = var.gcp_state_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = google_service_account.apply.member
 }
 
 resource "google_storage_bucket_iam_member" "apply_state_runtime" {

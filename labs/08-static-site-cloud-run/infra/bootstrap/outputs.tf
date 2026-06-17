@@ -33,6 +33,11 @@ output "gcp_apply_service_account_email" {
   value       = google_service_account.apply.email
 }
 
+output "gcp_runtime_service_account_email" {
+  description = "Pre-created runtime service account email used by Cloud Run revisions."
+  value       = google_service_account.runtime.email
+}
+
 output "github_wif_provider_name" {
   description = "Shared GitHub Workload Identity Federation provider name for google-github-actions/auth."
   value       = var.github_wif_provider_name

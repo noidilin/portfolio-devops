@@ -96,7 +96,7 @@ State-access model:
 - Plan role reads state via plan-service-account bucket-level read (`roles/storage.objectViewer`) and lock mutation only on `.tflock` files in:
   - `gcp/bootstrap/labs/07-static-site-gce/`
   - `gcp/runtime/labs/07-static-site-gce/stage/`
-- Apply role gets state write access only for runtime state prefix `gcp/runtime/labs/07-static-site-gce/stage/`.
+- Apply role gets bucket-level read/list (`roles/storage.objectViewer`) for Terraform GCS backend workspace discovery, plus state write access only for runtime state prefix `gcp/runtime/labs/07-static-site-gce/stage/`.
 
 ## Runtime destroy boundary
 

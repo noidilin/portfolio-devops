@@ -28,6 +28,16 @@ variable "container_image" {
   }
 }
 
+variable "runtime_service_account_email" {
+  description = "Pre-created runtime service account email used by Cloud Run revisions."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]\\.iam\\.gserviceaccount\\.com$", var.runtime_service_account_email))
+    error_message = "runtime_service_account_email must be a service account email in the target GCP project."
+  }
+}
+
 variable "container_port" {
   description = "Container port exposed by the static-site image."
   type        = number
