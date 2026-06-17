@@ -154,9 +154,27 @@ Allowed AWS managed policies currently include:
 arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
 arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices
+arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
 ```
 
 For additional permissions, prefer lab-prefixed customer managed policies or inline role policies.
+
+Terraform may manage EKS cluster OIDC providers for IRSA when the provider ARN matches:
+
+```text
+arn:aws:iam::*:oidc-provider/oidc.eks.*.amazonaws.com/id/*
+```
+
+Terraform may create the EKS managed node group service-linked role and read it for EKS validation. The pathless ARN covers IAM's pre-create validation path before the service-linked role exists:
+
+```text
+arn:aws:iam::*:role/AWSServiceRoleForAmazonEKSNodegroup
+arn:aws:iam::*:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup
+```
 
 Terraform may pass lab-prefixed roles only to approved services such as:
 

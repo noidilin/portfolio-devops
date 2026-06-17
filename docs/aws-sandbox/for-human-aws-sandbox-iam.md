@@ -138,10 +138,11 @@ lab-*
 terraform-*
 ```
 
-It also allows tightly scoped bootstrap management for the GitHub Actions OIDC provider:
+It also allows tightly scoped bootstrap management for the GitHub Actions OIDC provider and EKS cluster OIDC providers used by IRSA:
 
 ```text
 arn:aws:iam::*:oidc-provider/token.actions.githubusercontent.com
+arn:aws:iam::*:oidc-provider/oidc.eks.*.amazonaws.com/id/*
 ```
 
 It enforces:
@@ -149,10 +150,10 @@ It enforces:
 1. Terraform may create lab roles only with an approved boundary: `lab-devops-permissions-boundary` or `lab-gitops-oidc-apply-permissions-boundary`.
 2. Terraform may not remove role permissions boundaries.
 3. Terraform may not modify the boundary policies themselves.
-4. Terraform may attach only approved managed policies to lab roles.
+4. Terraform may attach only approved managed policies to lab roles, including the EKS cluster, worker node, CNI, ECR read-only, and EBS CSI driver policies needed by the Hiraya EKS stack.
 5. `iam:PassRole` is limited to lab-prefixed roles and approved AWS services.
-6. Required service-linked roles may be created for approved services.
-7. GitHub OIDC provider management is limited to `token.actions.githubusercontent.com`.
+6. Required service-linked roles may be created for approved services, including EKS managed node groups; the EKS node group service-linked role may also be read for AWS validation.
+7. GitHub OIDC provider management is limited to `token.actions.githubusercontent.com`; EKS OIDC provider management is limited to `oidc.eks.*.amazonaws.com/id/*`.
 
 ## Bootstrap note
 

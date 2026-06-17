@@ -41,6 +41,22 @@
       "Resource": "arn:aws:iam::*:oidc-provider/token.actions.githubusercontent.com"
     },
     {
+      "Sid": "AllowEksOidcProviderManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UntagOpenIDConnectProvider",
+        "iam:ListOpenIDConnectProviderTags",
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:RemoveClientIDFromOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint"
+      ],
+      "Resource": "arn:aws:iam::*:oidc-provider/oidc.eks.*.amazonaws.com/id/*"
+    },
+    {
       "Sid": "DenyCreateLabRolesWithoutApprovedBoundary",
       "Effect": "Deny",
       "Action": "iam:CreateRole",
@@ -154,7 +170,12 @@
             "arn:aws:iam::*:policy/terraform-*",
             "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
             "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
-            "arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices"
+            "arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices",
+            "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+            "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+            "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+            "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+            "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
           ]
         }
       }
@@ -173,7 +194,12 @@
         "arn:aws:iam::*:policy/terraform-*",
         "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
         "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
-        "arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices"
+        "arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices",
+        "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+        "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+        "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+        "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+        "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
       ]
     },
     {
@@ -189,7 +215,9 @@
         "arn:aws:iam::*:role/devops-*",
         "arn:aws:iam::*:role/lab-*",
         "arn:aws:iam::*:role/terraform-*",
-        "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_agent_*"
+        "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_agent_*",
+        "arn:aws:iam::*:role/AWSServiceRoleForAmazonEKSNodegroup",
+        "arn:aws:iam::*:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup"
       ]
     },
     {
@@ -243,7 +271,8 @@
         "arn:aws:iam::*:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing",
         "arn:aws:iam::*:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
         "arn:aws:iam::*:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS",
-        "arn:aws:iam::*:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKS"
+        "arn:aws:iam::*:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKS",
+        "arn:aws:iam::*:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup"
       ],
       "Condition": {
         "StringEquals": {
@@ -253,7 +282,8 @@
             "elasticloadbalancing.amazonaws.com",
             "autoscaling.amazonaws.com",
             "rds.amazonaws.com",
-            "eks.amazonaws.com"
+            "eks.amazonaws.com",
+            "eks-nodegroup.amazonaws.com"
           ]
         }
       }
