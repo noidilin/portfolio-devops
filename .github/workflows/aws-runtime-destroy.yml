@@ -148,56 +148,80 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -n "${SERVICE_URL}" ] && curl -fsS --max-time 15 "${SERVICE_URL}" >/dev/null 2>&1; then
-            echo "Runtime endpoint still responds after destroy: ${SERVICE_URL}" >&2
-            exit 1
-          fi
+          DESTROY_VERIFY_ATTEMPTS=30
+          DESTROY_VERIFY_DELAY_SECONDS=10
+
+          wait_until_gone() {
+            local description="$1"
+            local check_function="$2"
+            local attempt
+
+            for attempt in $(seq 1 "${DESTROY_VERIFY_ATTEMPTS}"); do
+              if ! "${check_function}"; then
+                echo "${description} is gone."
+                return 0
+              fi
+
+              if [ "${attempt}" -eq "${DESTROY_VERIFY_ATTEMPTS}" ]; then
+                echo "${description} still exists after destroy wait." >&2
+                return 1
+              fi
+
+              echo "${description} still exists after destroy; waiting ${DESTROY_VERIFY_DELAY_SECONDS}s (${attempt}/${DESTROY_VERIFY_ATTEMPTS})."
+              sleep "${DESTROY_VERIFY_DELAY_SECONDS}"
+            done
+          }
+
+          runtime_endpoint_responds() {
+            [ -n "${SERVICE_URL}" ] && curl -fsS --max-time 15 "${SERVICE_URL}" >/dev/null 2>&1
+          }
+
+          security_group_exists() {
+            [ -n "${SECURITY_GROUP_ID}" ] && aws ec2 describe-security-groups --group-ids "${SECURITY_GROUP_ID}" >/dev/null 2>&1
+          }
+
+          active_instance_exists() {
+            [ -n "${INSTANCE_ID}" ] || return 1
+            ACTIVE_INSTANCE_ID=$(aws ec2 describe-instances \
+              --instance-ids "${INSTANCE_ID}" \
+              --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId" \
+              --output text 2>/dev/null || true)
+            [ -n "${ACTIVE_INSTANCE_ID}" ]
+          }
+
+          express_service_exists() {
+            [ -n "${EXPRESS_SERVICE_ARN}" ] && aws ecs describe-express-gateway-service --service-arn "${EXPRESS_SERVICE_ARN}" >/dev/null 2>&1
+          }
+
+          log_group_exists() {
+            [ -n "${CLOUDWATCH_LOG_GROUP_NAME}" ] || return 1
+            EXISTING_LOG_GROUP=$(aws logs describe-log-groups \
+              --log-group-name-prefix "${CLOUDWATCH_LOG_GROUP_NAME}" \
+              --query "logGroups[?logGroupName=='${CLOUDWATCH_LOG_GROUP_NAME}'].logGroupName" \
+              --output text)
+            [ -n "${EXISTING_LOG_GROUP}" ]
+          }
+
+          active_cluster_exists() {
+            [ -n "${ECS_CLUSTER_NAME}" ] || return 1
+            ACTIVE_CLUSTER=$(aws ecs describe-clusters \
+              --clusters "${ECS_CLUSTER_NAME}" \
+              --query "clusters[?status!='INACTIVE'].clusterName" \
+              --output text)
+            [ -n "${ACTIVE_CLUSTER}" ]
+          }
+
+          wait_until_gone "Runtime endpoint ${SERVICE_URL}" runtime_endpoint_responds
 
           case "${RUNTIME_KIND}" in
             ec2)
-              if [ -n "${SECURITY_GROUP_ID}" ] && aws ec2 describe-security-groups --group-ids "${SECURITY_GROUP_ID}" >/dev/null 2>&1; then
-                echo "EC2 runtime security group still exists after destroy: ${SECURITY_GROUP_ID}" >&2
-                exit 1
-              fi
-
-              if [ -n "${INSTANCE_ID}" ]; then
-                ACTIVE_INSTANCE_ID=$(aws ec2 describe-instances \
-                  --instance-ids "${INSTANCE_ID}" \
-                  --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId" \
-                  --output text 2>/dev/null || true)
-                if [ -n "${ACTIVE_INSTANCE_ID}" ]; then
-                  echo "EC2 runtime instance is still active after destroy: ${INSTANCE_ID}" >&2
-                  exit 1
-                fi
-              fi
+              wait_until_gone "EC2 runtime security group ${SECURITY_GROUP_ID}" security_group_exists
+              wait_until_gone "EC2 runtime instance ${INSTANCE_ID}" active_instance_exists
               ;;
             ecs-express)
-              if [ -n "${EXPRESS_SERVICE_ARN}" ] && aws ecs describe-express-gateway-service --service-arn "${EXPRESS_SERVICE_ARN}" >/dev/null 2>&1; then
-                echo "ECS Express runtime service still exists after destroy: ${EXPRESS_SERVICE_ARN}" >&2
-                exit 1
-              fi
-
-              if [ -n "${CLOUDWATCH_LOG_GROUP_NAME}" ]; then
-                EXISTING_LOG_GROUP=$(aws logs describe-log-groups \
-                  --log-group-name-prefix "${CLOUDWATCH_LOG_GROUP_NAME}" \
-                  --query "logGroups[?logGroupName=='${CLOUDWATCH_LOG_GROUP_NAME}'].logGroupName" \
-                  --output text)
-                if [ -n "${EXISTING_LOG_GROUP}" ]; then
-                  echo "ECS runtime log group still exists after destroy: ${CLOUDWATCH_LOG_GROUP_NAME}" >&2
-                  exit 1
-                fi
-              fi
-
-              if [ -n "${ECS_CLUSTER_NAME}" ]; then
-                ACTIVE_CLUSTER=$(aws ecs describe-clusters \
-                  --clusters "${ECS_CLUSTER_NAME}" \
-                  --query "clusters[?status!='INACTIVE'].clusterName" \
-                  --output text)
-                if [ -n "${ACTIVE_CLUSTER}" ]; then
-                  echo "ECS runtime cluster is still active after destroy: ${ECS_CLUSTER_NAME}" >&2
-                  exit 1
-                fi
-              fi
+              wait_until_gone "ECS Express runtime service ${EXPRESS_SERVICE_ARN}" express_service_exists
+              wait_until_gone "ECS runtime log group ${CLOUDWATCH_LOG_GROUP_NAME}" log_group_exists
+              wait_until_gone "ECS runtime cluster ${ECS_CLUSTER_NAME}" active_cluster_exists
               ;;
           esac
 
